@@ -39,10 +39,8 @@ def min_dot_size(target: GPUTarget):
 
 
 def get_ptxas(arch: int) -> knobs.NvidiaTool:
-    if arch < 90:
-        return knobs.nvidia.ptxas
-    # The ptxas-blackwell name is misleading; keep it until legacy ptxas is removed.
-    return knobs.nvidia.ptxas_blackwell
+    # On Windows, we do not bundle ptxas_blackwell, and there is no reported need to use a specific ptxas_blackwell
+    return knobs.nvidia.ptxas
 
 
 @functools.lru_cache()
@@ -114,6 +112,16 @@ def sm_arch_from_capability(capability: int):
     # TODO: Handle non-"a" sms
     suffix = "a" if capability >= 90 else ""
     return f"sm_{capability}{suffix}"
+
+
+# The file may be accessed in parallel
+def try_remove(path):
+    if os.path.exists(path):
+        try:
+            os.remove(path)
+        except OSError:
+            import traceback
+            traceback.print_exc()
 
 
 @dataclass(frozen=True)
@@ -613,20 +621,17 @@ class CUDABackend(BaseBackend):
                 fsrc.name, '-o', fbin
             ]
             try:
-                subprocess.run(ptxas_cmd, check=True, close_fds=False, stderr=flog)
+                # close_fds=True on Windows and False on Linux, see https://github.com/triton-lang/triton/pull/4357
+                # On Windows, both stdout and stderr need to be redirected to flog
+                subprocess.run(ptxas_cmd, check=True, close_fds=True if os.name == 'nt' else False, stdout=flog,
+                               stderr=flog)
                 if knobs.nvidia.dump_ptxas_log:
                     with open(flog.name) as log_file:
                         print(log_file.read())
 
-                if os.path.exists(fsrc.name):
-                    os.remove(fsrc.name)
-                if os.path.exists(flog.name):
-                    os.remove(flog.name)
             except subprocess.CalledProcessError as e:
                 with open(flog.name) as log_file:
                     log = log_file.read()
-                if os.path.exists(flog.name):
-                    os.remove(flog.name)
 
                 if e.returncode == 255:
                     error = 'Internal Triton PTX codegen error'
@@ -650,10 +655,13 @@ please share the reproducer above with Triton project.
 """)
                 raise PTXASError(error)
 
-            with open(fbin, 'rb') as f:
-                cubin = f.read()
-            if os.path.exists(fbin):
-                os.remove(fbin)
+        with open(fbin, 'rb') as f:
+            cubin = f.read()
+        try_remove(fbin)
+
+        # It's better to remove the temp files outside the context managers
+        try_remove(fsrc.name)
+        try_remove(flog.name)
         return cubin
 
     def add_stages(self, stages, options, language):
