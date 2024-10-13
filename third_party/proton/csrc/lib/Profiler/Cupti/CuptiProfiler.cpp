@@ -341,7 +341,11 @@ void CuptiProfiler::CuptiProfilerPimpl::allocBuffer(uint8_t **buffer,
                                                     size_t *maxNumRecords) {
   const auto envBufferSize =
       getIntEnv("TRITON_PROFILE_BUFFER_SIZE", 64 * 1024 * 1024);
+#if _WIN32
+  *buffer = static_cast<uint8_t *>(_aligned_malloc(BufferSize, AlignSize));
+#else
   *buffer = static_cast<uint8_t *>(aligned_alloc(AlignSize, envBufferSize));
+#endif
   if (*buffer == nullptr) {
     throw std::runtime_error("[PROTON] aligned_alloc failed");
   }
