@@ -24,9 +24,10 @@ def _find_compiler(language: str) -> str:
         cc = os.environ.get("CC")
         if cc is not None:
             return cc
+        cl = shutil.which("cl")
         clang = shutil.which("clang")
         gcc = shutil.which("gcc")
-        cc = gcc if gcc is not None else clang
+        cc = cl if cl is not None else gcc if gcc is not None else clang
         if cc is not None:
             return cc
         raise RuntimeError(
@@ -37,9 +38,10 @@ def _find_compiler(language: str) -> str:
     if cxx is not None:
         return cxx
 
+    cl = shutil.which("cl")
     clangxx = shutil.which("clang++")
     gxx = shutil.which("g++")
-    cxx = gxx if gxx is not None else clangxx
+    cxx = cl if cl is not None else gxx if gxx is not None else clangxx
     if cxx is not None:
         return cxx
 
@@ -57,6 +59,45 @@ def _language_from_filename(source_name: str) -> str:
     raise ValueError(f"Unrecognized file extension: {source_name}")
 
 
+def _cc_cmd(cc: str, src: str, out: str, include_dirs: list[str], library_dirs: list[str], libraries: list[str],
+            ccflags: list[str], language: str) -> list[str]:
+    if cc.lower().endswith("cl.exe") or cc.lower().endswith("cl"):
+        cc_cmd = [cc, src, "/nologo", "/O2", "/LD"]
+
+        if language == "c++":
+            cc_cmd += ["/std:c++17"]
+
+        cc_cmd += [f"/I{dir}" for dir in include_dirs if dir is not None]
+        cc_cmd += [
+            r"/IC:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\include"
+        ]
+        cc_cmd += [r"/IC:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\shared"]
+        cc_cmd += [r"/IC:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\ucrt"]
+        cc_cmd += [r"/IC:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um"]
+
+        cc_cmd += ["/link"]
+        cc_cmd += [f"/LIBPATH:{dir}" for dir in library_dirs]
+        cc_cmd += [
+            r"/LIBPATH:C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\lib\x64"
+        ]
+        cc_cmd += [r"/LIBPATH:C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\ucrt\x64"]
+        cc_cmd += [r"/LIBPATH:C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\um\x64"]
+        cc_cmd += [r"/LIBPATH:C:\Python310\libs"]
+
+        cc_cmd += [f"{lib}.lib" for lib in libraries]
+        cc_cmd += [f"/OUT:{out}"]
+    else:
+        # for -Wno-psabi, see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=111047
+        cc_cmd = [cc, src, "-O3", "-shared", "-fPIC", "-Wno-psabi", "-o", out]
+        if language == "c++":
+            cc_cmd.insert(3, "-std=c++17")
+        cc_cmd += [_library_flag(lib) for lib in libraries]
+        cc_cmd += [f"-L{dir}" for dir in library_dirs]
+        cc_cmd += [f"-I{dir}" for dir in include_dirs if dir is not None]
+    cc_cmd += ccflags
+    return cc_cmd
+
+
 def _build(name: str, src: str, srcdir: str, library_dirs: list[str], include_dirs: list[str], libraries: list[str],
            ccflags: list[str], language: str = "c") -> str:
     if impl := knobs.build.impl:
@@ -72,14 +113,7 @@ def _build(name: str, src: str, srcdir: str, library_dirs: list[str], include_di
     py_include_dir = sysconfig.get_paths(scheme=scheme)["include"]
     custom_backend_dirs = knobs.build.backend_dirs
     include_dirs = include_dirs + [srcdir, py_include_dir, *custom_backend_dirs]
-    # for -Wno-psabi, see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=111047
-    cc_cmd = [cc, src, "-O3", "-shared", "-fPIC", "-Wno-psabi", "-o", so]
-    if language == "c++":
-        cc_cmd.insert(3, "-std=c++17")
-    cc_cmd += [_library_flag(lib) for lib in libraries]
-    cc_cmd += [f"-L{dir}" for dir in library_dirs]
-    cc_cmd += [f"-I{dir}" for dir in include_dirs if dir is not None]
-    cc_cmd.extend(ccflags)
+    cc_cmd = _cc_cmd(cc, src, so, include_dirs, library_dirs, libraries, ccflags, language)
     subprocess.check_call(cc_cmd, stdout=subprocess.DEVNULL)
     return so
 
