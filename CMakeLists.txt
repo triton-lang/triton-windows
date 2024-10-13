@@ -305,10 +305,14 @@ if (NOT WIN32 AND NOT APPLE AND NOT BSD)
   link_libraries(stdc++fs)
 endif()
 
+if(WIN32)
+  add_subdirectory(third_party/dlfcn-win32)
+  include_directories(${PROJECT_SOURCE_DIR}/third_party/dlfcn-win32)
+endif()
+
 ################################################################################
 # Python module
 ################################################################################
-
 if(TRITON_BUILD_PYTHON_MODULE)
   message(STATUS "Adding Python module")
   set(PYTHON_SRC_PATH ${CMAKE_CURRENT_SOURCE_DIR}/python/src)
@@ -425,7 +429,7 @@ if(TRITON_BUILD_PYTHON_MODULE)
   set_target_properties(triton PROPERTIES INTERFACE_LINK_LIBRARIES "")
 
   if(WIN32)
-    target_link_libraries(triton PRIVATE ${CMAKE_DL_LIBS})
+    target_link_libraries(triton PRIVATE ${CMAKE_DL_LIBS} dlfcn)
     set_target_properties(triton PROPERTIES SUFFIX ".pyd")
     set_target_properties(triton PROPERTIES PREFIX "lib")
   else()
@@ -496,9 +500,6 @@ endif()
 find_package(Threads REQUIRED)
 
 add_subdirectory(third_party/f2reduce)
-if(WIN32)
-  add_subdirectory(third_party/dlfcn-win32)
-endif()
 add_subdirectory(bin)
 add_subdirectory(test)
 
