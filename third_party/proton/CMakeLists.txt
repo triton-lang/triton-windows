@@ -94,3 +94,7 @@ endif()
 
 # ============ Link any external libs required by Proton backends ============
 link_proton_backend_external_libs()
+
+if(WIN32)
+  target_link_libraries(proton PRIVATE dlfcn)
+endif()
