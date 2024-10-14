@@ -218,7 +218,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 if(NOT MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_FORMAT_MACROS  -fPIC")
 else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_FORMAT_MACROS")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /nologo /Zc:__STDC__ /Zc:preprocessor")
 endif()
 
 ################################################################################
@@ -295,7 +295,7 @@ if(NOT MSVC)
   # migration. Keep their deprecation warnings visible but non-fatal.
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=deprecated-declarations")
 else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4244 /wd4624 /wd4715 /wd4530")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX /wd4244 /wd4624 /wd4819")
 endif()
 
 include_directories(".")
