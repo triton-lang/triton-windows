@@ -1,4 +1,5 @@
 import itertools
+import os
 import re
 from collections import Counter
 
@@ -55,6 +56,9 @@ def _hex_float_values(output: bytes) -> Counter:
                                                       ("device_print_2d_tensor", "int32"),
                                                   ])
 def test_print(func_type: str, data_type: str, device: str, capfd):
+    if os.name == "nt" and func_type == "device_print_large":
+        pytest.skip("Windows has limited pipe buffer size")
+
     print_helper.test_print(func_type, data_type, device)
     output = capfd.readouterr()
     stdout = output.out.encode("utf-8")
