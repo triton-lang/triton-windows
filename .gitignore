@@ -97,3 +97,8 @@ docs/sg_execution_times.rst
 .DS_Store
 
 AGENTS.override.md
+
+.tmp
+/main.*
+/*.mlir
+/wheelhouse
