@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import sysconfig
 import tempfile
 import logging
@@ -91,6 +92,14 @@ def _build(name: str, src: str, srcdir: str, library_dirs: list[str], include_di
         return impl(name, src, srcdir, library_dirs, include_dirs, libraries)
     suffix = sysconfig.get_config_var('EXT_SUFFIX')
     so = os.path.join(srcdir, f'{name}{suffix}')
+
+    # Users may not know how to add cl to PATH. Let's do it for them
+    if os.name == "nt":
+        msvc_winsdk_inc_dirs, _ = find_msvc_winsdk()
+        if msvc_winsdk_inc_dirs:
+            cl_path = msvc_winsdk_inc_dirs[0].replace(r"\include", r"\bin\Hostx64\x64")
+            os.environ["PATH"] = cl_path + os.pathsep + os.environ["PATH"]
+
     cc = _find_compiler(language)
     scheme = sysconfig.get_default_scheme()
     # 'posix_local' is a custom scheme on Debian. However, starting Python 3.10, the default install
@@ -102,6 +111,9 @@ def _build(name: str, src: str, srcdir: str, library_dirs: list[str], include_di
     include_dirs = include_dirs + [srcdir, py_include_dir, *custom_backend_dirs]
     if os.name == "nt":
         library_dirs += [os.path.join(sysconfig.get_paths()["data"], "libs")]
+        library_dirs += [os.path.join(os.path.dirname(sys.executable), "libs")]
+        python_version = sysconfig.get_python_version().replace(".", "")
+        library_dirs += [fr"C:\Python{python_version}\libs"]
         msvc_winsdk_inc_dirs, msvc_winsdk_lib_dirs = find_msvc_winsdk()
         include_dirs += msvc_winsdk_inc_dirs
         library_dirs += msvc_winsdk_lib_dirs
