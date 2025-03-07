@@ -243,13 +243,15 @@ def is_linux_os(os_id):
 def get_llvm_package_info(helper_args: BuildHelperArgs):
     system = platform.system()
     try:
-        arch = {"x86_64": "x64", "arm64": "arm64", "aarch64": "arm64"}[platform.machine()]
+        arch = {"x86_64": "x64", "AMD64": "x64", "arm64": "arm64", "aarch64": "arm64"}[platform.machine()]
     except KeyError:
         arch = platform.machine()
     if helper_args.llvm_system_suffix:
         system_suffix = helper_args.llvm_system_suffix
     elif system == "Darwin":
         system_suffix = f"macos-{arch}"
+    elif system == "Windows":
+        system_suffix = f"windows-{arch}"
     elif system == "Linux":
         if arch == "arm64" and is_linux_os("almalinux"):
             system_suffix = "almalinux-arm64"
@@ -375,9 +377,11 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
     system = platform.system()
     arch = platform.machine()
     # NOTE: This might be wrong for jetson if both grace chips and jetson chips return aarch64
-    arch = {"arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
-    supported = {"Linux": "linux", "Darwin": "linux"}
+    arch = {"AMD64": "x86_64", "arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
+    supported = {"Linux": "linux", "Darwin": "linux", "Windows": "windows"}
     url = url_func(supported[system], arch, version)
+    if system == "Windows":
+        url = url.replace(".tar.xz", ".zip")
     src_path = src_func(supported[system], arch, version)
     tmp_path = os.path.join(cache_path, "nvidia", name)  # path to cache the download
     dst_path = os.path.join(base_dir, "third_party", "nvidia", "backend", dst_path)  # final binary path
