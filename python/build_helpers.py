@@ -103,6 +103,21 @@ def update_symlink(link_path, source_path):
     link_path.symlink_to(source_path.absolute(), target_is_directory=True)
 
 
+def download_and_extract_archive(url, extract_path):
+    with open_url(url) as response:
+        if url.endswith(".zip"):
+            file_bytes = BytesIO(response.read())
+            with zipfile.ZipFile(file_bytes, "r") as file:
+                file.extractall(path=extract_path)
+        else:
+            with tarfile.open(fileobj=response, mode="r|*") as file:
+                # Use extractall without filter for Python version < 3.12 compatibility
+                if hasattr(tarfile, "data_filter"):
+                    file.extractall(path=extract_path, filter="data")
+                else:
+                    file.extractall(path=extract_path)
+
+
 # --- third party packages -----
 
 
@@ -136,13 +151,15 @@ def is_linux_os(os_id):
 def get_llvm_package_info(helper_args: BuildHelperArgs):
     system = platform.system()
     try:
-        arch = {"x86_64": "x64", "arm64": "arm64", "aarch64": "arm64"}[platform.machine()]
+        arch = {"x86_64": "x64", "AMD64": "x64", "arm64": "arm64", "aarch64": "arm64"}[platform.machine()]
     except KeyError:
         arch = platform.machine()
     if helper_args.llvm_system_suffix:
         system_suffix = helper_args.llvm_system_suffix
     elif system == "Darwin":
         system_suffix = f"macos-{arch}"
+    elif system == "Windows":
+        system_suffix = f"windows-{arch}"
     elif system == "Linux":
         if arch == "arm64" and is_linux_os("almalinux"):
             system_suffix = "almalinux-arm64"
@@ -208,18 +225,7 @@ def _get_thirdparty_package_cmake_vars(package: Package, helper_args: BuildHelpe
             shutil.rmtree(package_root_dir)
         os.makedirs(package_root_dir, exist_ok=True)
         print(f"downloading and extracting {package.url} ...")
-        with open_url(package.url) as response:
-            if package.url.endswith(".zip"):
-                file_bytes = BytesIO(response.read())
-                with zipfile.ZipFile(file_bytes, "r") as file:
-                    file.extractall(path=package_root_dir)
-            else:
-                with tarfile.open(fileobj=response, mode="r|*") as file:
-                    # Use extractall without filter for Python version < 3.12 compatibility
-                    if hasattr(tarfile, "data_filter"):
-                        file.extractall(path=package_root_dir, filter="data")
-                    else:
-                        file.extractall(path=package_root_dir)
+        download_and_extract_archive(package.url, package_root_dir)
         # write version url to package_dir
         with open(os.path.join(package_dir, "version.txt"), "w") as file:
             file.write(package.url)
@@ -281,9 +287,11 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
     system = platform.system()
     arch = platform.machine()
     # NOTE: This might be wrong for jetson if both grace chips and jetson chips return aarch64
-    arch = {"arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
-    supported = {"Linux": "linux", "Darwin": "linux"}
+    arch = {"AMD64": "x86_64", "arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
+    supported = {"Linux": "linux", "Darwin": "linux", "Windows": "windows"}
     url = url_func(supported[system], arch, version)
+    if system == "Windows":
+        url = url.replace(".tar.xz", ".zip")
     src_path = src_func(supported[system], arch, version)
     tmp_path = os.path.join(cache_path, "nvidia", name)  # path to cache the download
     dst_path = os.path.join(base_dir, "third_party", "nvidia", "backend", dst_path)  # final binary path
@@ -296,12 +304,7 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
         download = download or curr_version.group(1) != version
     if download:
         print(f"downloading and extracting {url} ...")
-        with open_url(url) as url_file, tarfile.open(fileobj=url_file, mode="r|*") as tar_file:
-            # Use extractall without filter for Python version < 3.12 compatibility
-            if hasattr(tarfile, "data_filter"):
-                tar_file.extractall(path=tmp_path, filter="data")
-            else:
-                tar_file.extractall(path=tmp_path)
+        download_and_extract_archive(url, tmp_path)
     os.makedirs(os.path.split(dst_path)[0], exist_ok=True)
     print(f"copy {src_path} to {dst_path} ...")
     if os.path.isdir(src_path):
