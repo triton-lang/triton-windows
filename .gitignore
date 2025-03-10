@@ -70,6 +70,7 @@ ptxas
 ptxas-blackwell
 
 # Third-party include
+third_party/nvidia/backend/bin
 third_party/nvidia/backend/include
 third_party/nvidia/backend/lib/cupti
 third_party/nvidia/backend/lib/cupti-blackwell
@@ -106,7 +107,5 @@ docs/sg_execution_times.rst
 
 AGENTS.override.md
 
-.tmp
-/main.*
-/*.mlir
-/wheelhouse
+/dist/
+/wheelhouse/
