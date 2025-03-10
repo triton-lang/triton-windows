@@ -531,18 +531,10 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
     base_dir = get_base_dir()
     system = platform.system()
     arch = platform.machine()
-    if system == "Windows":
-        # On Windows we don't need this unless in CI
-        if not _normalize_bool(os.getenv("TRITON_WINDOWS_COPY_NVIDIA_PACKAGES", "")):
-            return
-        if dst_path.startswith("bin/"):
-            dst_path += ".exe"
     # NOTE: This might be wrong for jetson if both grace chips and jetson chips return aarch64
     arch = {"AMD64": "x86_64", "arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
     supported = {"Linux": "linux", "Darwin": "linux", "Windows": "windows"}
     url = url_func(supported[system], arch, version)
-    if system == "Windows":
-        url = url.replace(".tar.xz", ".zip")
     src_path = src_func(supported[system], arch, version)
     tmp_path = os.path.join(cache_path, "nvidia", name)  # path to cache the download
     dst_path = os.path.join(base_dir, "third_party", "nvidia", "backend", dst_path)  # final binary path
@@ -574,101 +566,109 @@ class NvidiaToolchainPackage:
     override_attr: str
 
     def archive(self, system, arch):
-        filename = f"{self.component}-{system}-{arch}-{self.version}-archive.tar.xz"
+        extension = ".zip" if system == "windows" else ".tar.xz"
+        filename = f"{self.component}-{system}-{arch}-{self.version}-archive{extension}"
         path = f"{self.component}/{system}-{arch}/{filename}"
         url = f"https://developer.download.nvidia.com/compute/cuda/redist/{path}"
         return DependencyArchive(url, f"nvidia-cuda-redist/{path}")
 
+    def source_path(self, system, arch):
+        archive = self.archive(system, arch)
+        archive_root = archive.filename.removesuffix(".tar.xz").removesuffix(".zip")
+        return f"{archive_root}/{self.src_path}"
 
-def get_nvidia_toolchain_packages():
+
+def get_nvidia_toolchain_packages(need_copy_all=False):
     nvidia_version_path = os.path.join(get_base_dir(), "cmake", "nvidia-toolchain-version.json")
     with open(nvidia_version_path, "r") as nvidia_version_file:
         versions = json.load(nvidia_version_file)
     exe = sysconfig.get_config_var("EXE")
-    crt = "cuda_crt" if int(versions["cudacrt"].split(".")[0]) >= 13 else "cuda_nvcc"
-    return [
+    packages = [
         NvidiaToolchainPackage(
-            name="nvcc",
+            name=f"nvidia/nvcc-{versions['ptxas']}",
             component="cuda_nvcc",
             version=versions["ptxas"],
             src_path=f"bin/ptxas{exe}",
-            dst_path="bin/ptxas",
+            dst_path=f"third_party/nvidia/backend/bin/ptxas{exe}",
             override_attr="ptxas_path",
         ),
-        # Blackwell needs a separate ptxas because this version has Hopper bugs.
-        NvidiaToolchainPackage(
-            name="nvcc-blackwell",
-            component="cuda_nvcc",
-            version=versions["ptxas-blackwell"],
-            src_path=f"bin/ptxas{exe}",
-            dst_path="bin/ptxas-blackwell",
-            override_attr="ptxas_blackwell_path",
-        ),
-        NvidiaToolchainPackage(
-            name="cuobjdump",
-            component="cuda_cuobjdump",
-            version=versions["cuobjdump"],
-            src_path=f"bin/cuobjdump{exe}",
-            dst_path="bin/cuobjdump",
-            override_attr="cuobjdump_path",
-        ),
-        NvidiaToolchainPackage(
-            name="nvdisasm",
-            component="cuda_nvdisasm",
-            version=versions["nvdisasm"],
-            src_path=f"bin/nvdisasm{exe}",
-            dst_path="bin/nvdisasm",
-            override_attr="nvdisasm_path",
-        ),
-        NvidiaToolchainPackage(
-            name="nvcc-crt",
-            component=crt,
-            version=versions["cudacrt"],
-            src_path="include",
-            dst_path="include",
-            override_attr="cudacrt_path",
-        ),
-        NvidiaToolchainPackage(
-            name="cudart",
-            component="cuda_cudart",
-            version=versions["cudart"],
-            src_path="include",
-            dst_path="include",
-            override_attr="cudart_path",
-        ),
-        NvidiaToolchainPackage(
-            name="cupti",
-            component="cuda_cupti",
-            version=versions["cupti"],
-            src_path="include",
-            dst_path="include",
-            override_attr="cupti_include_path",
-        ),
-        NvidiaToolchainPackage(
-            name="cupti",
-            component="cuda_cupti",
-            version=versions["cupti"],
-            src_path="lib",
-            dst_path="lib/cupti",
-            override_attr="cupti_lib_path",
-        ),
-        NvidiaToolchainPackage(
-            name="cupti-blackwell",
-            component="cuda_cupti",
-            version=versions["cupti-blackwell"],
-            src_path="lib",
-            dst_path="lib/cupti-blackwell",
-            override_attr="cupti_lib_blackwell_path",
-        ),
     ]
+    # In triton-windows, we do not download a separate ptxas for blackwell
+
+    if need_copy_all:
+        crt = "cuda_crt" if int(versions["cudacrt"].split(".")[0]) >= 13 else "cuda_nvcc"
+        is_windows = platform.system() == "Windows"
+        cupti_lib_version = versions.get("cupti-windows", versions["cupti"]) if is_windows else versions["cupti"]
+        packages.extend([
+            NvidiaToolchainPackage(
+                name=f"nvidia/crt-{versions['cudacrt']}",
+                component=crt,
+                version=versions["cudacrt"],
+                src_path="include",
+                dst_path="third_party/nvidia/backend/include",
+                override_attr="cudacrt_path",
+            ),
+            NvidiaToolchainPackage(
+                name=f"nvidia/cudart-{versions['cudart']}",
+                component="cuda_cudart",
+                version=versions["cudart"],
+                src_path="include",
+                dst_path="third_party/nvidia/backend/include",
+                override_attr="cudart_path",
+            ),
+            NvidiaToolchainPackage(
+                name=f"nvidia/cudart-{versions['cudart']}",
+                component="cuda_cudart",
+                version=versions["cudart"],
+                src_path="lib",
+                dst_path="third_party/nvidia/backend/lib",
+                override_attr="cudart_path",
+            ),
+            NvidiaToolchainPackage(
+                name=f"nvidia/cupti-{versions['cupti']}",
+                component="cuda_cupti",
+                version=versions["cupti"],
+                src_path="include",
+                dst_path="third_party/nvidia/backend/include",
+                override_attr="cupti_include_path",
+            ),
+            NvidiaToolchainPackage(
+                name=f"nvidia/cupti-{cupti_lib_version}",
+                component="cuda_cupti",
+                version=cupti_lib_version,
+                src_path="lib",
+                dst_path="third_party/nvidia/backend/lib/cupti",
+                override_attr="cupti_lib_path",
+            ),
+        ])
+    else:
+        packages.extend([
+            NvidiaToolchainPackage(
+                name=f"nvidia/cudart-{versions['cudart']}",
+                component="cuda_cudart",
+                version=versions["cudart"],
+                src_path="include/cuda.h",
+                dst_path="third_party/nvidia/backend/include/cuda.h",
+                override_attr="cudart_path",
+            ),
+            NvidiaToolchainPackage(
+                name=f"nvidia/cudart-{versions['cudart']}",
+                component="cuda_cudart",
+                version=versions["cudart"],
+                src_path="lib/x64/cuda.lib",
+                dst_path="third_party/nvidia/backend/lib/x64/cuda.lib",
+                override_attr="cudart_path",
+            ),
+        ])
+    return packages
 
 
 def download_and_copy_dependencies(helper_args: BuildHelperArgs):
-    for package in get_nvidia_toolchain_packages():
+    need_copy_all = (check_env_flag("TRITON_BUILD_PROTON", "ON") or check_env_flag("TRITON_BUILD_GSAN"))
+    for package in get_nvidia_toolchain_packages(need_copy_all):
         download_and_copy(
             name=package.name,
-            src_func=lambda system, arch, version, package=package:
-            f"{package.archive(system, arch).filename.removesuffix('.tar.xz')}/{package.src_path}",
+            src_func=lambda system, arch, version, package=package: package.source_path(system, arch),
             dst_path=package.dst_path,
             override_path=getattr(helper_args, package.override_attr),
             version=package.version,
