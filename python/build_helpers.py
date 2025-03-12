@@ -833,6 +833,17 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
             helper_args=helper_args,
         )
 
+    download_and_copy(
+        name="tcc",
+        src_func=lambda system, arch, version: ".",
+        dst_path="python/triton/runtime/tcc",
+        override_path=None,
+        version="",
+        url_func=lambda system, arch, version:
+        "https://github.com/woct0rdho/triton-windows/releases/download/tcc/tcc.zip",
+        helper_args=helper_args,
+    )
+
 
 def add_common_args(parser: argparse.ArgumentParser):
     parser.add_argument("--triton-cache-path", required=True, help="Cache directory path")
