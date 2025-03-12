@@ -27,6 +27,10 @@ def _find_compiler(language: str) -> str:
         cc = os.environ.get("CC")
         if cc is not None:
             return cc
+        # Bundled TinyCC
+        cc = os.path.join(sysconfig.get_paths()["platlib"], "triton", "runtime", "tcc", "tcc.exe")
+        if os.path.exists(cc):
+            return cc
         cl = shutil.which("cl")
         clang = shutil.which("clang")
         gcc = shutil.which("gcc")
