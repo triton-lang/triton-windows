@@ -62,9 +62,14 @@ def _language_from_filename(source_name: str) -> str:
     raise ValueError(f"Unrecognized file extension: {source_name}")
 
 
+def is_msvc(cc):
+    cc = os.path.basename(cc).lower()
+    return cc == "cl" or cc == "cl.exe"
+
+
 def _cc_cmd(cc: str, src: str, out: str, include_dirs: list[str], library_dirs: list[str], libraries: list[str],
             ccflags: list[str], language: str) -> list[str]:
-    if cc.lower().endswith("cl.exe") or cc.lower().endswith("cl"):
+    if is_msvc(cc):
         out_base = os.path.splitext(out)[0]
         cc_cmd = [cc, src, "/nologo", "/O2", "/LD", "/wd4819"]
 
@@ -116,6 +121,7 @@ def _build(name: str, src: str, srcdir: str, library_dirs: list[str], include_di
     include_dirs = include_dirs + [srcdir, py_include_dir, *custom_backend_dirs]
     if os.name == "nt":
         library_dirs += find_python()
+    if is_msvc(cc):
         msvc_winsdk_inc_dirs, msvc_winsdk_lib_dirs = find_msvc_winsdk()
         include_dirs += msvc_winsdk_inc_dirs
         library_dirs += msvc_winsdk_lib_dirs
