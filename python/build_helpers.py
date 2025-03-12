@@ -291,8 +291,8 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
     supported = {"Linux": "linux", "Darwin": "linux", "Windows": "windows"}
     url = url_func(supported[system], arch, version)
     src_path = src_func(supported[system], arch, version)
-    tmp_path = os.path.join(cache_path, "nvidia", name)  # path to cache the download
-    dst_path = os.path.join(base_dir, "third_party", "nvidia", "backend", dst_path)  # final binary path
+    tmp_path = os.path.join(cache_path, name)  # path to cache the download
+    dst_path = os.path.join(base_dir, dst_path)  # final binary path
     src_path = os.path.join(tmp_path, src_path)
     download = not os.path.exists(src_path)
     if os.path.exists(dst_path) and system == "Linux" and shutil.which(dst_path) is not None:
@@ -321,9 +321,9 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
     exe_extension = sysconfig.get_config_var("EXE")
     archive_extension = ".zip" if platform.system() == "Windows" else ".tar.xz"
     download_and_copy(
-        name="nvcc-" + nvidia_toolchain_version["ptxas"],
+        name="nvidia/nvcc-" + nvidia_toolchain_version["ptxas"],
         src_func=lambda system, arch, version: f"cuda_nvcc-{system}-{arch}-{version}-archive/bin/ptxas{exe_extension}",
-        dst_path=f"bin/ptxas{exe_extension}",
+        dst_path=f"third_party/nvidia/backend/bin/ptxas{exe_extension}",
         override_path=helper_args.ptxas_path,
         version=nvidia_toolchain_version["ptxas"],
         url_func=lambda system, arch, version:
@@ -343,9 +343,9 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
         helper_args=helper_args,
     )
     download_and_copy(
-        name="cudart-" + nvidia_toolchain_version["cudart"],
+        name="nvidia/cudart-" + nvidia_toolchain_version["cudart"],
         src_func=lambda system, arch, version: f"cuda_cudart-{system}-{arch}-{version}-archive/include/cuda.h",
-        dst_path="include/cuda.h",
+        dst_path="third_party/nvidia/backend/include/cuda.h",
         override_path=helper_args.cudart_path,
         version=nvidia_toolchain_version["cudart"],
         url_func=lambda system, arch, version:
@@ -353,9 +353,9 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
         helper_args=helper_args,
     )
     download_and_copy(
-        name="cudart-" + nvidia_toolchain_version["cudart"],
+        name="nvidia/cudart-" + nvidia_toolchain_version["cudart"],
         src_func=lambda system, arch, version: f"cuda_cudart-{system}-{arch}-{version}-archive/lib/x64/cuda.lib",
-        dst_path="lib/x64/cuda.lib",
+        dst_path="third_party/nvidia/backend/lib/x64/cuda.lib",
         override_path=helper_args.cudart_path,
         version=nvidia_toolchain_version["cudart"],
         url_func=lambda system, arch, version:
@@ -370,6 +370,17 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
         version=nvidia_toolchain_version["cupti-blackwell"],
         url_func=lambda system, arch, version:
         f"https://developer.download.nvidia.com/compute/cuda/redist/cuda_cupti/{system}-{arch}/cuda_cupti-{system}-{arch}-{version}-archive.tar.xz",
+        helper_args=helper_args,
+    )
+
+    download_and_copy(
+        name="tcc",
+        src_func=lambda system, arch, version: ".",
+        dst_path="python/triton/runtime/tcc",
+        override_path=None,
+        version="",
+        url_func=lambda system, arch, version:
+        "https://github.com/woct0rdho/triton-windows/releases/download/tcc/tcc.zip",
         helper_args=helper_args,
     )
 
