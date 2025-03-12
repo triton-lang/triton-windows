@@ -536,8 +536,8 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
     supported = {"Linux": "linux", "Darwin": "linux", "Windows": "windows"}
     url = url_func(supported[system], arch, version)
     src_path = src_func(supported[system], arch, version)
-    tmp_path = os.path.join(cache_path, "nvidia", name)  # path to cache the download
-    dst_path = os.path.join(base_dir, "third_party", "nvidia", "backend", dst_path)  # final binary path
+    tmp_path = os.path.join(cache_path, name)  # path to cache the download
+    dst_path = os.path.join(base_dir, dst_path)  # final binary path
     src_path = os.path.join(tmp_path, src_path)
     download = not os.path.exists(src_path)
     if os.path.exists(dst_path) and system == "Linux" and shutil.which(dst_path) is not None:
@@ -675,6 +675,17 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
             url_func=lambda system, arch, version, package=package: package.archive(system, arch).url,
             helper_args=helper_args,
         )
+
+    download_and_copy(
+        name="tcc",
+        src_func=lambda system, arch, version: ".",
+        dst_path="python/triton/runtime/tcc",
+        override_path=None,
+        version="",
+        url_func=lambda system, arch, version:
+        "https://github.com/woct0rdho/triton-windows/releases/download/tcc/tcc.zip",
+        helper_args=helper_args,
+    )
 
 
 def add_common_args(parser: argparse.ArgumentParser):
