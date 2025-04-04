@@ -5,7 +5,7 @@ import torch
 import triton
 import triton.language as tl
 
-from triton._internal_testing import is_cuda, is_hopper_or_newer, is_hip_cdna, is_hip_cdna2, is_hip
+from triton._internal_testing import is_cuda, is_hopper_or_newer, is_hip_cdna, is_hip_cdna2
 
 
 def check_capabilities():
@@ -424,8 +424,10 @@ def indirect_matmul_kernel(
 @pytest.mark.parametrize("BLOCK_M, BLOCK_N, BLOCK_K", [(128, 128, 128), (128, 128, 64), (128, 64, 128)])
 @pytest.mark.parametrize("num_stages", [1, 3, 5])
 def test_indirect_matmul(BLOCK_M, BLOCK_N, BLOCK_K, num_stages, device):
-    if (num_stages > 3 or (num_stages >= 3 and (BLOCK_M, BLOCK_N, BLOCK_K) == (128, 128, 128))) and is_hip():
-        pytest.skip("Not enough shared memory on HIP.")
+    shared_mem_accum = (BLOCK_K * BLOCK_M + BLOCK_K * BLOCK_N) * num_stages * 2
+    shared_mem_avail = triton.runtime.driver.active.utils.get_device_properties(0)["max_shared_mem"]
+    if shared_mem_accum > shared_mem_avail:
+        pytest.skip("Skipped due to insufficient shared memory on this GPU.")
     M = BLOCK_M
     N = BLOCK_N
 
