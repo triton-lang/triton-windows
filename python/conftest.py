@@ -29,12 +29,17 @@ def process_pool(request):
 
 @pytest.fixture
 def fresh_triton_cache():
-    with tempfile.TemporaryDirectory() as directory:
-        from triton import knobs
+    try:
+        with tempfile.TemporaryDirectory() as directory:
+            from triton import knobs
 
-        with knobs.cache.scope(), knobs.runtime.scope():
-            knobs.cache.dir = directory
-            yield directory
+            with knobs.cache.scope(), knobs.runtime.scope():
+                knobs.cache.dir = directory
+                yield directory
+    except OSError:
+        # On Windows, the compiled binary may not be deleted when the temporary directory cleans up,
+        # because it is still loaded by the Python process.
+        pass
 
 
 @pytest.fixture
