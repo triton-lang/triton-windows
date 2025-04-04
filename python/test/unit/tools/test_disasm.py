@@ -1,9 +1,14 @@
+import os
+
 import torch
 
 import triton
 import pytest
 import triton.language as tl
 import triton.tools.disasm as disasm
+
+if os.name == "nt":
+    pytest.skip("Device-side assertions are disabled on Windows by default", allow_module_level=True)
 
 
 def test_disam_cubin():
