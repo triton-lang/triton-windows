@@ -1,3 +1,5 @@
+import os
+
 import pytest
 import torch
 import triton.language as tl
@@ -6,6 +8,9 @@ from triton._internal_testing import is_interpreter, run_in_process
 from triton.runtime.errors import InterpreterError
 
 pytestmark = pytest.mark.usefixtures("process_pool")
+
+if os.name == "nt":
+    pytest.skip("Device-side assertions are disabled on Windows by default", allow_module_level=True)
 
 
 def _run_device_assert(cond, mask, opt_flag, jit_flag, device):
