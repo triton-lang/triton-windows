@@ -157,12 +157,12 @@ def gen_kernel_library(dir, libname):
         libname = libname.replace(".so", ".lib")
 
         c_files = glob.glob(os.path.join(dir, "*.c"))
-        command = ["cl", *c_files, "/nologo", "/c"]
+        command = ["cl", *c_files, "/nologo", "/utf-8", "/c"]
         command += [f"/I{x}" for x in include_dirs if x is not None]
         subprocess.run(command, check=True, cwd=dir)
 
         obj_files = glob.glob(os.path.join(dir, "*.obj"))
-        command = ["lib", *obj_files]
+        command = ["lib", *obj_files, "/nologo"]
         command += [f"/LIBPATH:{x}" for x in library_dirs()]
         command += ["cuda.lib", f"/OUT:{libname}"]
         subprocess.run(command, check=True, cwd=dir)
@@ -297,7 +297,7 @@ def build_test_bin(dir, src, src_name, exe):
         file.write(src)
 
     if os.name == "nt":
-        command = ["cl", src_name, "/nologo"]
+        command = ["cl", src_name, "/nologo", "/utf-8"]
         command += [f"/I{x}" for x in include_dirs if x is not None]
         command += ["/link"]
         command += [f"/LIBPATH:{x}" for x in library_dirs()]
