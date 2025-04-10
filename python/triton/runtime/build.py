@@ -27,6 +27,10 @@ def _find_compiler(language: str) -> str:
         cc = os.environ.get("CC")
         if cc is not None:
             return cc
+        if os.name == "nt":
+            cc, _, _ = find_msvc_winsdk(env_only=True)
+            if cc is not None:
+                return cc
         # Bundled TinyCC
         cc = os.path.join(sysconfig.get_paths()["platlib"], "triton", "runtime", "tcc", "tcc.exe")
         if os.path.exists(cc):
@@ -44,14 +48,16 @@ def _find_compiler(language: str) -> str:
     cxx = os.environ.get("CXX")
     if cxx is not None:
         return cxx
-
+    if os.name == "nt":
+        cxx, _, _ = find_msvc_winsdk(env_only=True)
+        if cxx is not None:
+            return cxx
     cl = shutil.which("cl")
     clangxx = shutil.which("clang++")
     gxx = shutil.which("g++")
     cxx = cl if cl is not None else gxx if gxx is not None else clangxx
     if cxx is not None:
         return cxx
-
     raise RuntimeError(
         "Failed to find C++ compiler. Please specify via CXX environment variable or set triton.knobs.build.impl.")
 
@@ -109,10 +115,9 @@ def _build(name: str, src: str, srcdir: str, library_dirs: list[str], include_di
 
     # Users may not know how to add cl to PATH. Let's do it for them
     if os.name == "nt":
-        msvc_winsdk_inc_dirs, _ = find_msvc_winsdk()
-        if msvc_winsdk_inc_dirs:
-            cl_path = msvc_winsdk_inc_dirs[0].replace(r"\include", r"\bin\Hostx64\x64")
-            os.environ["PATH"] = cl_path + os.pathsep + os.environ["PATH"]
+        msvc_bin_path, _, _ = find_msvc_winsdk()
+        if msvc_bin_path:
+            os.environ["PATH"] = msvc_bin_path + os.pathsep + os.environ["PATH"]
 
     cc = _find_compiler(language)
     scheme = sysconfig.get_default_scheme()
@@ -126,7 +131,7 @@ def _build(name: str, src: str, srcdir: str, library_dirs: list[str], include_di
     if os.name == "nt":
         library_dirs += find_python()
     if is_msvc(cc):
-        msvc_winsdk_inc_dirs, msvc_winsdk_lib_dirs = find_msvc_winsdk()
+        _, msvc_winsdk_inc_dirs, msvc_winsdk_lib_dirs = find_msvc_winsdk()
         include_dirs += msvc_winsdk_inc_dirs
         library_dirs += msvc_winsdk_lib_dirs
     cc_cmd = _cc_cmd(cc, src, so, include_dirs, library_dirs, libraries, ccflags, language)
