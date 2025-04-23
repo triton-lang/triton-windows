@@ -77,6 +77,11 @@ def is_msvc(cc):
     return cc == "cl" or cc == "cl.exe"
 
 
+def is_clang(cc):
+    cc = os.path.basename(cc).lower()
+    return cc == "clang" or cc == "clang.exe"
+
+
 def _cc_cmd(cc: str, src: str, out: str, include_dirs: list[str], library_dirs: list[str], libraries: list[str],
             ccflags: list[str], language: str) -> list[str]:
     if is_msvc(cc):
@@ -96,9 +101,12 @@ def _cc_cmd(cc: str, src: str, out: str, include_dirs: list[str], library_dirs: 
         cc_cmd += [f"/PDB:{out_base + '.pdb'}"]
     else:
         # for -Wno-psabi, see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=111047
-        cc_cmd = [cc, src, "-O3", "-shared", "-fPIC", "-Wno-psabi", "-o", out]
+        cc_cmd = [cc, src, "-O3", "-shared", "-Wno-psabi", "-o", out]
         if language == "c++":
             cc_cmd.insert(3, "-std=c++17")
+        if not (os.name == "nt" and is_clang(cc)):
+            # Clang does not support -fPIC on Windows
+            cc_cmd += ["-fPIC"]
         cc_cmd += [_library_flag(lib) for lib in libraries]
         cc_cmd += [f"-L{dir}" for dir in library_dirs]
         cc_cmd += [f"-I{dir}" for dir in include_dirs if dir is not None]
