@@ -459,10 +459,19 @@ if(TRITON_BUILD_PYTHON_MODULE)
       message(FATAL_ERROR "TRITON_WHEEL_DIR must be set.")
   endif()
 
-  configure_file(
-    "${LLVM_SYSPATH}/bin/FileCheck"
-    "${TRITON_WHEEL_DIR}/FileCheck"
-    COPYONLY)
+  if(TRITON_BUILD_UT)
+    if(WIN32)
+      configure_file(
+        "${LLVM_SYSPATH}/bin/FileCheck.exe"
+        "${TRITON_WHEEL_DIR}/FileCheck.exe"
+        COPYONLY)
+    else()
+      configure_file(
+        "${LLVM_SYSPATH}/bin/FileCheck"
+        "${TRITON_WHEEL_DIR}/FileCheck"
+        COPYONLY)
+    endif()
+  endif()
 
   # Build plugins when building libtriton since they depend on libtriton.
   add_subdirectory(examples/plugins)
