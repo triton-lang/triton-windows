@@ -134,4 +134,6 @@ link_proton_backend_external_libs()
 
 if(WIN32)
   target_link_libraries(proton PRIVATE dlfcn)
+  set_target_properties(proton PROPERTIES PREFIX "lib")
+  set_target_properties(proton PROPERTIES SUFFIX ".pyd")
 endif()
