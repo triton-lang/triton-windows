@@ -353,8 +353,8 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
         )
         download_and_copy(
             name="nvidia/cudart-" + nvidia_toolchain_version["cudart"],
-            src_func=lambda system, arch, version: f"cuda_cudart-{system}-{arch}-{version}-archive/lib",
-            dst_path="third_party/nvidia/backend/lib",
+            src_func=lambda system, arch, version: f"cuda_cudart-{system}-{arch}-{version}-archive/lib/x64/cuda.lib",
+            dst_path="third_party/nvidia/backend/lib/x64/cuda.lib",
             override_path=helper_args.cudart_path,
             version=nvidia_toolchain_version["cudart"],
             url_func=lambda system, arch, version:
@@ -373,8 +373,10 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
         )
         download_and_copy(
             name="nvidia/cupti-" + nvidia_toolchain_version["cupti"],
-            src_func=lambda system, arch, version: f"cuda_cupti-{system}-{arch}-{version}-archive/lib",
-            dst_path="third_party/nvidia/backend/lib/cupti",
+            # On Windows, each version of CUPTI has a specific DLL name. Remember to update this with `nvidia-toolchain-version.json`.
+            src_func=lambda system, arch, version:
+            f"cuda_cupti-{system}-{arch}-{version}-archive/lib/cupti64_2025.1.1.dll",
+            dst_path="third_party/nvidia/backend/lib/cupti/cupti64_2025.1.1.dll",
             override_path=helper_args.cupti_lib_path,
             version=nvidia_toolchain_version["cupti"],
             url_func=lambda system, arch, version:
