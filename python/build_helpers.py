@@ -212,17 +212,24 @@ def _get_thirdparty_package_cmake_vars(package: Package, helper_args: BuildHelpe
     syspath_override = _get_syspath_override(package.syspath_var_name, helper_args)
     if syspath_override is not None:
         package_dir = syspath_override
-    version_file_path = os.path.join(package_dir, "version.txt")
+    if package.sym_name is not None:
+        version_file_path = os.path.join(package_root_dir, package.sym_name, "version.txt")
+    else:
+        version_file_path = os.path.join(package_dir, "version.txt")
 
     input_defined = syspath_override is not None
-    input_exists = os.path.exists(version_file_path)
-    input_compatible = input_exists and Path(version_file_path).read_text() == package.url
+    input_compatible = os.path.exists(version_file_path) and Path(version_file_path).read_text() == package.url
+
+    if not input_compatible and package.sym_name is not None:
+        # Try to recreate the symlink with the correct version
+        version_file_path = os.path.join(package_dir, "version.txt")
+        input_compatible = os.path.exists(version_file_path) and Path(version_file_path).read_text() == package.url
 
     if helper_args.offline_build and not input_defined:
         raise RuntimeError(f"Requested an offline build but {package.syspath_var_name} is not set")
     if not helper_args.offline_build and not input_defined and not input_compatible:
         with contextlib.suppress(Exception):
-            shutil.rmtree(package_root_dir)
+            shutil.rmtree(package_dir)
         os.makedirs(package_root_dir, exist_ok=True)
         print(f"downloading and extracting {package.url} ...")
         download_and_extract_archive(package.url, package_root_dir)
