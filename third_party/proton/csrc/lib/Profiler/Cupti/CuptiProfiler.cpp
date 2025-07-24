@@ -341,8 +341,8 @@ void CuptiProfiler::CuptiProfilerPimpl::allocBuffer(uint8_t **buffer,
                                                     size_t *maxNumRecords) {
   const auto envBufferSize =
       getIntEnv("TRITON_PROFILE_BUFFER_SIZE", 64 * 1024 * 1024);
-#if _WIN32
-  *buffer = static_cast<uint8_t *>(_aligned_malloc(BufferSize, AlignSize));
+#ifdef _WIN32
+  *buffer = static_cast<uint8_t *>(_aligned_malloc(envBufferSize, AlignSize));
 #else
   *buffer = static_cast<uint8_t *>(aligned_alloc(AlignSize, envBufferSize));
 #endif
@@ -381,7 +381,11 @@ void CuptiProfiler::CuptiProfilerPimpl::completeBuffer(CUcontext ctx,
     }
   } while (true);
 
+#ifdef _WIN32
+  _aligned_free(buffer);
+#else
   std::free(buffer);
+#endif
 
   profiler.correlation.complete(maxCorrelationId);
   profiler.flushDataPhases(dataFlushedPhases, dataPhases,
