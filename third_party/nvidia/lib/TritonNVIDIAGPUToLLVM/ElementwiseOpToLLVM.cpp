@@ -103,6 +103,140 @@ static const Fp8ConversionDesc Fp8E5M2_to_Fp16 = {
     "}",
     32, 4};
 
+/* ----- FP8E4M3 ------ */
+
+// E4M3 does not embed in FP16: its exponent bias is 8 lower, so the bytes
+// cannot simply be permuted. Instead each value is placed in the high byte of
+// an FP32 register (the example input 0xf1f2f3f4 becomes a0 = 0xf300f400 and
+// a1 = 0xf100f200) and rebased with a multiply by 2^8, which also normalizes
+// subnormals. E4M3 values are exact in FP16, so no rounding occurs. NaNs do
+// not survive the rebias and are restored in createDestOps. Hardware
+// conversion on sm_89 and newer is handled by makeNativeFp8Converter.
+static const Fp8ConversionDesc Fp8E4M3Nv_to_Fp16 = {
+    R"({
+.reg .b32 a<2>, b<2>, c<4>, e8;
+mov.b32 e8, 0x43800000;
+prmt.b32 a0, 0, $2, 0x5140;
+prmt.b32 a1, 0, $2, 0x7362;
+and.b32 b0, a0, 0x7fff7fff;
+and.b32 b1, a1, 0x7fff7fff;
+shr.b32 b0, b0, 4;
+shr.b32 b1, b1, 4;
+and.b32 c0, b0, 0xffff0000;
+shl.b32 c1, b0, 16;
+and.b32 c2, b1, 0xffff0000;
+shl.b32 c3, b1, 16;
+mul.f32 c0, c0, e8;
+mul.f32 c1, c1, e8;
+mul.f32 c2, c2, e8;
+mul.f32 c3, c3, e8;
+prmt.b32 b0, c0, c1, 0x3276;
+prmt.b32 b1, c2, c3, 0x3276;
+shl.b32 b0, b0, 3;
+shl.b32 b1, b1, 3;
+lop3.b32 $0, b0, 0x80008000, a0, 0xf8;
+lop3.b32 $1, b1, 0x80008000, a1, 0xf8;
+})",
+    32, 4};
+
+// Converts packed values to FP8E4M3 with round-to-nearest-even, saturating to
+// the largest finite value and preserving NaNs, like cvt.rn.satfinite. E4M3
+// needs sm_89 or newer in hardware, which makeNativeFp8Converter handles.
+// Older GPUs use this software fallback in the same way as
+// Fp_to_Fp8E5M2_RTNE: the input is first converted to FP16 keeping one bit
+// that records which side of an E4M3 midpoint it is on, then the FP16 bits are
+// reinterpreted as FP32 and scaled by 2^-8 so that the exponent rebias and
+// subnormals are handled by the FP32 arithmetic.
+static Fp8ConversionDesc Fp_to_Fp8E4M3Nv_RTNE(bool fromFp32) {
+  std::string ptx = R"({
+.reg .b32 h<2>, b<2>, c<4>, e8, lsb<4>;
+.reg .pred p<4>;
+)";
+  if (fromFp32) {
+    // Preserve which side of an E4M3 midpoint each input lies on before
+    // truncating to FP16. Every midpoint has its low 19 FP32 bits clear, so
+    // jamming the low 16 bits into bit 16 keeps that information. This is the
+    // same trick as Fp_to_Fp8E5M2_RTNE, not general FP16 round-to-odd.
+    ptx += R"(.reg .b32 x<4>;
+add.u32 x0, $1, 0xffff;
+add.u32 x1, $2, 0xffff;
+add.u32 x2, $3, 0xffff;
+add.u32 x3, $4, 0xffff;
+lop3.b32 x0, $1, x0, 0x10000, 0xf8;
+lop3.b32 x1, $2, x1, 0x10000, 0xf8;
+lop3.b32 x2, $3, x2, 0x10000, 0xf8;
+lop3.b32 x3, $4, x3, 0x10000, 0xf8;
+cvt.rz.f16x2.f32 h0, x1, x0;
+cvt.rz.f16x2.f32 h1, x3, x2;
+)";
+  } else {
+    ptx += R"(mov.b32 h0, $1;
+mov.b32 h1, $2;
+)";
+  }
+
+  // Split the sign off and work on one FP16 magnitude per register. NaN is
+  // detected before the exponent rebias and restored after the rounding.
+  // After adding half an ulp plus the retained LSB the result sits in bits
+  // 20..27, so it can be saturated to the largest finite code (0x7e).
+  ptx += R"(and.b32 b0, h0, 0x7fff7fff;
+and.b32 b1, h1, 0x7fff7fff;
+and.b32 c0, b0, 0xffff0000;
+shl.b32 c1, b0, 16;
+and.b32 c2, b1, 0xffff0000;
+shl.b32 c3, b1, 16;
+setp.gt.u32 p0, c0, 0x7c000000;
+setp.gt.u32 p1, c1, 0x7c000000;
+setp.gt.u32 p2, c2, 0x7c000000;
+setp.gt.u32 p3, c3, 0x7c000000;
+shr.b32 c0, c0, 3;
+shr.b32 c1, c1, 3;
+shr.b32 c2, c2, 3;
+shr.b32 c3, c3, 3;
+mov.b32 e8, 0x3b800000;
+mul.f32 c0, c0, e8;
+mul.f32 c1, c1, e8;
+mul.f32 c2, c2, e8;
+mul.f32 c3, c3, e8;
+min.u32 c0, c0, 0x07f7ffff;
+min.u32 c1, c1, 0x07f7ffff;
+min.u32 c2, c2, 0x07f7ffff;
+min.u32 c3, c3, 0x07f7ffff;
+and.b32 lsb0, c0, 0x00100000;
+and.b32 lsb1, c1, 0x00100000;
+and.b32 lsb2, c2, 0x00100000;
+and.b32 lsb3, c3, 0x00100000;
+shr.b32 lsb0, lsb0, 20;
+shr.b32 lsb1, lsb1, 20;
+shr.b32 lsb2, lsb2, 20;
+shr.b32 lsb3, lsb3, 20;
+add.u32 c0, c0, 0x0007ffff;
+add.u32 c1, c1, 0x0007ffff;
+add.u32 c2, c2, 0x0007ffff;
+add.u32 c3, c3, 0x0007ffff;
+add.u32 c0, c0, lsb0;
+add.u32 c1, c1, lsb1;
+add.u32 c2, c2, lsb2;
+add.u32 c3, c3, lsb3;
+min.u32 c0, c0, 0x07efffff;
+min.u32 c1, c1, 0x07efffff;
+min.u32 c2, c2, 0x07efffff;
+min.u32 c3, c3, 0x07efffff;
+selp.b32 c0, 0x07f00000, c0, p0;
+selp.b32 c1, 0x07f00000, c1, p1;
+selp.b32 c2, 0x07f00000, c2, p2;
+selp.b32 c3, 0x07f00000, c3, p3;
+prmt.b32 b0, c0, c1, 0x3276;
+prmt.b32 b1, c2, c3, 0x3276;
+shl.b32 b0, b0, 4;
+shl.b32 b1, b1, 4;
+lop3.b32 b0, b0, 0x80008000, h0, 0xf8;
+lop3.b32 b1, b1, 0x80008000, h1, 0xf8;
+prmt.b32 $0, b0, b1, 0x7531;
+})";
+  return {ptx, 32, 4};
+}
+
 static Fp8ConversionDesc Fp8_to_Bf16(int computeCapability, bool isE5M2) {
   if (isE5M2 && computeCapability < 89) {
     // E5M2 embeds exactly in FP16. Widening preserves infinities and quiets
@@ -121,6 +255,37 @@ cvt.f32.f16 f2, h2;
 cvt.f32.f16 f3, h3;
 prmt.b32 $0, f0, f1, 0x7632;
 prmt.b32 $1, f2, f3, 0x7632;
+})",
+            32, 4};
+  }
+
+  if (!isE5M2 && computeCapability < 89) {
+    // Same rebias as Fp8E4M3Nv_to_Fp16, but with 2^120 to reach the BF16
+    // exponent bias of 127 and without the extra shift, since the upper 16
+    // bits of the result are already the BF16 encoding. E4M3 values are
+    // exact in BF16. NaNs do not survive the rebias and are restored in
+    // createDestOps.
+    return {R"({
+.reg .b32 a<2>, b<2>, c<4>, e120;
+mov.b32 e120, 0x7b800000;
+prmt.b32 a0, 0, $2, 0x5140;
+prmt.b32 a1, 0, $2, 0x7362;
+and.b32 b0, a0, 0x7fff7fff;
+and.b32 b1, a1, 0x7fff7fff;
+shr.b32 b0, b0, 4;
+shr.b32 b1, b1, 4;
+and.b32 c0, b0, 0xffff0000;
+shl.b32 c1, b0, 16;
+and.b32 c2, b1, 0xffff0000;
+shl.b32 c3, b1, 16;
+mul.f32 c0, c0, e120;
+mul.f32 c1, c1, e120;
+mul.f32 c2, c2, e120;
+mul.f32 c3, c3, e120;
+prmt.b32 b0, c0, c1, 0x3276;
+prmt.b32 b1, c2, c3, 0x3276;
+lop3.b32 $0, b0, 0x80008000, a0, 0xf8;
+lop3.b32 $1, b1, 0x80008000, a1, 0xf8;
 })",
             32, 4};
   }
@@ -352,11 +517,6 @@ struct FpToFpOpConversion
     // Require PTX 9.2 to support both directions.
     bool hasPackedBf16 = computeCapability >= 100 && ptxVersion >= 92;
 
-    if (computeCapability < 89 &&
-        (isa<Float8E4M3FNType>(srcTy) || isa<Float8E4M3FNType>(dstTy))) {
-      llvm::report_fatal_error("Conversion from/to f8e4m3nv is only supported "
-                               "on compute capability >= 89\n");
-    }
     if (computeCapability >= 89) {
       if (isa<Float8E4M3FNType, Float8E5M2Type>(dstTy) &&
           (srcTy.isF16() || srcTy.isBF16() || srcTy.isF32()) &&
@@ -372,7 +532,11 @@ struct FpToFpOpConversion
     DenseMap<std::tuple<TypeID, TypeID, RoundingMode>, Fp8ConversionDesc>
         srcMap = {
             // F8 -> F16
+            {{F8E4M3TyID, F16TyID, undefRounding}, Fp8E4M3Nv_to_Fp16},
             {{F8E5M2TyID, F16TyID, undefRounding}, Fp8E5M2_to_Fp16},
+            // F16 -> F8
+            {{F16TyID, F8E4M3TyID, RoundingMode::RTNE},
+             Fp_to_Fp8E4M3Nv_RTNE(/*fromFp32=*/false)},
             {{F16TyID, F8E5M2TyID, RoundingMode::RTNE},
              Fp_to_Fp8E5M2_RTNE(/*fromFp32=*/false)},
             {{F16TyID, F8E5M2TyID, RoundingMode::RTZ}, Fp16_to_Fp8E5M2_RTZ},
@@ -387,6 +551,8 @@ struct FpToFpOpConversion
                  ? Fp8ConversionDesc{"cvt.rn.bf16x2.e4m3x2 $0, $1;", 16, 2}
                  : Fp8_to_Bf16(computeCapability, /*isE5M2=*/false)},
             // F32 -> F8
+            {{F32TyID, F8E4M3TyID, RoundingMode::RTNE},
+             Fp_to_Fp8E4M3Nv_RTNE(/*fromFp32=*/true)},
             {{F32TyID, F8E5M2TyID, RoundingMode::RTNE},
              Fp_to_Fp8E5M2_RTNE(/*fromFp32=*/true)},
         };
@@ -451,14 +617,13 @@ struct FpToFpOpConversion
                              roundingMode.value_or(RoundingMode::RTNE))};
     }
 
-    bool useSoftwareFp8 = computeCapability < 89 &&
-                          isa<Float8E5M2Type>(dstElementType) &&
-                          roundingMode == RoundingMode::RTNE;
+    bool useSoftwareFp8 =
+        computeCapability < 89 &&
+        llvm::isa<Float8E5M2Type, Float8E4M3FNType>(dstElementType) &&
+        roundingMode == RoundingMode::RTNE;
     bool useFP16IntermediateSrc =
         (srcElementType.isF32() &&
-         (!(llvm::isa<Float8E5M2Type>(dstElementType) ||
-            (computeCapability >= 89 &&
-             llvm::isa<Float8E4M3FNType>(dstElementType))) ||
+         (!llvm::isa<Float8E5M2Type, Float8E4M3FNType>(dstElementType) ||
           roundingMode.value() == RoundingMode::RTZ)) ||
         (useSoftwareFp8 && srcElementType.isBF16());
     bool isDstFP32 = dstElementType.isF32();
@@ -473,7 +638,7 @@ struct FpToFpOpConversion
     if (useFP16IntermediateSrc) {
       for (Value &v : inVals) {
         if (srcElementType.isBF16()) {
-          // BF16 is exact in FP16 throughout E5M2's nonzero rounding range.
+          // BF16 is exact in FP16 throughout FP8's nonzero rounding range.
           v = convertFpTrunc(loc, rewriter, f16_ty, b.fpext(f32_ty, v),
                              RoundingMode::RTNE);
         } else {
@@ -485,6 +650,27 @@ struct FpToFpOpConversion
     SmallVector<Value> outVals = cvtFunc(loc, rewriter, inVals);
     assert(outVals.size() == inVals.size());
     outVals.resize(std::min(numElements, operands.size()));
+    if (computeCapability < 89 && llvm::isa<Float8E4M3FNType>(srcElementType)) {
+      // The software E4M3 upcasts don't preserve NaNs. Restore the canonical
+      // quiet NaN of the destination, keeping the sign of the input.
+      Value nan, negNan;
+      if (llvm::isa<BFloat16Type>(dstElementType)) {
+        nan = b.bitcast(b.i16_val(0x7fc0), bf16_ty);
+        negNan = b.bitcast(b.i16_val(0xffc0), bf16_ty);
+      } else {
+        nan = b.bitcast(b.i16_val(0x7e00), f16_ty);
+        negNan = b.bitcast(b.i16_val(0xfe00), f16_ty);
+      }
+      for (size_t i = 0; i < outVals.size(); i++) {
+        Value input = operands[i][0];
+        Value magnitude = b.and_(input, b.i8_val(0x7f));
+        Value isNan = b.icmp_eq(magnitude, b.i8_val(0x7f));
+        Value isNegative =
+            b.icmp_eq(b.and_(input, b.i8_val(0x80)), b.i8_val(0x80));
+        outVals[i] =
+            b.select(isNan, b.select(isNegative, negNan, nan), outVals[i]);
+      }
+    }
     if (isDstFP32)
       for (Value &v : outVals)
         v = convertFp16ToFp32(loc, rewriter, v);
