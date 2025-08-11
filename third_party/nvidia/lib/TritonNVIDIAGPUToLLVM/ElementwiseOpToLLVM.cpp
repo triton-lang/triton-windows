@@ -231,6 +231,104 @@ static Value convertFpTrunc(Location loc, ConversionPatternRewriter &rewriter,
       .getResult(0);
 }
 
+static SmallVector<Value> convertE4M3ToF32(Location loc,
+                                           ConversionPatternRewriter &rewriter,
+                                           ArrayRef<Value> values) {
+  auto b = TritonLLVMOpBuilder(loc, rewriter);
+  SmallVector<Value> converted;
+  for (Value value : values) {
+    // Position the 7 magnitude bits at f32 bits [26:20] and multiply by
+    // 2^120 to correct the exponent bias (f32 bias 127 - E4M3 bias 7 = 120).
+    Value magnitude = b.and_(value, b.i8_val(0x7f));
+    Value bits = b.shl(b.zext(i32_ty, magnitude), b.i32_val(20));
+    Value widened = b.fmul(b.bitcast(bits, f32_ty), b.f32_val(0x1p120f));
+    // The rebias never produces NaNs, so createDestOps restores them.
+    Value sign =
+        b.shl(b.and_(b.zext(i32_ty, value), b.i32_val(0x80)), b.i32_val(24));
+    converted.push_back(
+        b.bitcast(b.or_(b.bitcast(widened, i32_ty), sign), f32_ty));
+  }
+  return converted;
+}
+
+static ConverterT makeSoftwareE4M3Upcast(Type dstTy) {
+  return [dstTy](Location loc, ConversionPatternRewriter &rewriter,
+                 const SmallVector<Value> &values) -> SmallVector<Value> {
+    assert(values.size() == 4 && "expected four packed elements");
+    auto b = TritonLLVMOpBuilder(loc, rewriter);
+    SmallVector<Value> widened = convertE4M3ToF32(loc, rewriter, values);
+    if (dstTy.isBF16())
+      return truncateExactFp32ToBf16(loc, rewriter,
+                                     packLLVector(loc, widened, rewriter));
+    SmallVector<Value> converted;
+    for (Value value : widened)
+      converted.push_back(
+          convertFpTrunc(loc, rewriter, f16_ty, value, RoundingMode::RTNE));
+    return converted;
+  };
+}
+
+static ConverterT makeSoftwareE4M3Converter(bool fromFp32) {
+  return [fromFp32](Location loc, ConversionPatternRewriter &rewriter,
+                    const SmallVector<Value> &values) -> SmallVector<Value> {
+    assert(values.size() == 4 && "expected four packed elements");
+    auto b = TritonLLVMOpBuilder(loc, rewriter);
+    SmallVector<Value> rounded;
+    for (int i = 0; i < 2; ++i) {
+      Value halves;
+      if (fromFp32) {
+        SmallVector<Value> inputs;
+        for (Value value : ArrayRef(values).slice(2 * i, 2)) {
+          // Preserve which side of an E4M3 midpoint the FP32 input lies on
+          // before truncating to FP16, as in makeSoftwareE5M2Converter.
+          Value bits = b.bitcast(value, i32_ty);
+          Value sticky =
+              b.and_(b.add(bits, b.i32_val(0xffff)), b.i32_val(0x10000));
+          inputs.push_back(b.bitcast(b.or_(bits, sticky), f32_ty));
+        }
+        halves = NVVM::ConvertF32x2ToF16x2Op::create(
+            rewriter, loc, vec_ty(f16_ty, 2), inputs[1], inputs[0], Value(),
+            NVVM::FPRoundingMode::RZ, NVVM::SaturationMode::NONE, false);
+      } else {
+        halves = packLLVector(loc, ArrayRef(values).slice(2 * i, 2), rewriter);
+      }
+      Value bits = b.bitcast(halves, i32_ty);
+      Value magnitude = b.and_(bits, b.i32_val(0x7fff7fff));
+      // Move both FP16 magnitudes into the high half of an FP32 register and
+      // scale them so that the rebias leaves the E4M3 code in the high byte.
+      Value lane0 = b.shl(magnitude, b.i32_val(16));
+      Value lane1 = b.and_(magnitude, b.i32_val(0xffff0000));
+      // NaN is the only encoding above infinity.
+      Value nan0 = b.icmp_ugt(lane0, b.i32_val(0x7c000000));
+      Value nan1 = b.icmp_ugt(lane1, b.i32_val(0x7c000000));
+      auto scale = [&b, &rewriter](Value v) -> Value {
+        v = b.lshr(v, b.i32_val(3));
+        v = b.bitcast(b.fmul(b.bitcast(v, f32_ty), b.f32_val(0x1p-8f)), i32_ty);
+        v = b.umin(v, b.i32_val(0x07f7ffff));
+        // Round to nearest even, then saturate to the largest finite code.
+        v = b.add(b.add(v, b.i32_val(0x0007ffff)),
+                  b.and_(b.lshr(v, b.i32_val(20)), b.i32_val(1)));
+        return b.umin(v, b.i32_val(0x07efffff));
+      };
+      lane0 = b.select(nan0, b.i32_val(0x07f00000), scale(lane0));
+      lane1 = b.select(nan1, b.i32_val(0x07f00000), scale(lane1));
+      // Move each code into the high byte of its half and restore the sign.
+      Value packed = b.or_(b.lshr(lane0, b.i32_val(16)),
+                           b.and_(lane1, b.i32_val(0xffff0000)));
+      packed = b.shl(packed, b.i32_val(4));
+      packed = b.or_(b.and_(packed, b.i32_val(0x7fff7fff)),
+                     b.and_(bits, b.i32_val(0x80008000)));
+      rounded.push_back(packed);
+    }
+    Value bytes =
+        b.bitcast(packLLVector(loc, rounded, rewriter), vec_ty(i8_ty, 8));
+    Value result = LLVM::ShuffleVectorOp::create(rewriter, loc, bytes,
+                                                 b.undef(bytes.getType()),
+                                                 ArrayRef<int32_t>{1, 3, 5, 7});
+    return unpackLLVector(loc, result, rewriter);
+  };
+}
+
 // Use packed conversions where the target supports them.
 struct FpToFpOpConversion
     : public ElementwiseOpConversionBase<FpToFpOp, FpToFpOpConversion> {
@@ -257,11 +355,6 @@ struct FpToFpOpConversion
     // Require PTX 9.2 to support both directions.
     bool hasPackedBf16 = computeCapability >= 100 && ptxVersion >= 92;
 
-    if (computeCapability < 89 &&
-        (isa<Float8E4M3FNType>(srcTy) || isa<Float8E4M3FNType>(dstTy))) {
-      llvm::report_fatal_error("Conversion from/to f8e4m3nv is only supported "
-                               "on compute capability >= 89\n");
-    }
     if (computeCapability >= 89) {
       if (isa<Float8E4M3FNType, Float8E5M2Type>(dstTy) &&
           (srcTy.isF16() || srcTy.isBF16() || srcTy.isF32()) &&
@@ -281,10 +374,15 @@ struct FpToFpOpConversion
         return {convertF16ToE5M2RtzPacked, 4};
       return {makeE5M2F16Converter(/*toFp16=*/false), 4};
     }
+    if (isa<Float8E4M3FNType>(srcTy) && dstTy.isF16() && !roundingMode)
+      return {makeSoftwareE4M3Upcast(dstTy), 4};
 
     if (isa<Float8E5M2Type>(dstTy) && (srcTy.isF16() || srcTy.isF32()) &&
         roundingMode == RoundingMode::RTNE)
       return {makeSoftwareE5M2Converter(srcTy.isF32()), 4};
+    if (isa<Float8E4M3FNType>(dstTy) && (srcTy.isF16() || srcTy.isF32()) &&
+        roundingMode == RoundingMode::RTNE)
+      return {makeSoftwareE4M3Converter(srcTy.isF32()), 4};
     if (computeCapability < 89 && isa<Float8E5M2Type>(srcTy) &&
         dstTy.isBF16() && !roundingMode) {
       return {[](Location loc, ConversionPatternRewriter &rewriter,
@@ -297,6 +395,9 @@ struct FpToFpOpConversion
               },
               4};
     }
+    if (computeCapability < 89 && isa<Float8E4M3FNType>(srcTy) &&
+        dstTy.isBF16() && !roundingMode)
+      return {makeSoftwareE4M3Upcast(dstTy), 4};
 
     if (isa<Float8E4M3FNType, Float8E5M2Type>(srcTy) && dstTy.isBF16() &&
         !roundingMode) {
@@ -371,14 +472,13 @@ struct FpToFpOpConversion
                              roundingMode.value_or(RoundingMode::RTNE))};
     }
 
-    bool useSoftwareFp8 = computeCapability < 89 &&
-                          isa<Float8E5M2Type>(dstElementType) &&
-                          roundingMode == RoundingMode::RTNE;
+    bool useSoftwareFp8 =
+        computeCapability < 89 &&
+        llvm::isa<Float8E5M2Type, Float8E4M3FNType>(dstElementType) &&
+        roundingMode == RoundingMode::RTNE;
     bool useFP16IntermediateSrc =
         (srcElementType.isF32() &&
-         (!(llvm::isa<Float8E5M2Type>(dstElementType) ||
-            (computeCapability >= 89 &&
-             llvm::isa<Float8E4M3FNType>(dstElementType))) ||
+         (!llvm::isa<Float8E5M2Type, Float8E4M3FNType>(dstElementType) ||
           roundingMode.value() == RoundingMode::RTZ)) ||
         (useSoftwareFp8 && srcElementType.isBF16());
     bool isDstFP32 = dstElementType.isF32();
@@ -393,7 +493,7 @@ struct FpToFpOpConversion
     if (useFP16IntermediateSrc) {
       for (Value &v : inVals) {
         if (srcElementType.isBF16()) {
-          // BF16 is exact in FP16 throughout E5M2's nonzero rounding range.
+          // BF16 is exact in FP16 throughout FP8's nonzero rounding range.
           v = convertFpTrunc(loc, rewriter, f16_ty, b.fpext(f32_ty, v),
                              RoundingMode::RTNE);
         } else {
@@ -405,6 +505,27 @@ struct FpToFpOpConversion
     SmallVector<Value> outVals = cvtFunc(loc, rewriter, inVals);
     assert(outVals.size() == inVals.size());
     outVals.resize(std::min(numElements, operands.size()));
+    if (computeCapability < 89 && llvm::isa<Float8E4M3FNType>(srcElementType)) {
+      // The software E4M3 upcasts don't preserve NaNs. Restore the canonical
+      // quiet NaN of the destination, keeping the sign of the input.
+      Value nan, negNan;
+      if (llvm::isa<BFloat16Type>(dstElementType)) {
+        nan = b.bitcast(b.i16_val(0x7fc0), bf16_ty);
+        negNan = b.bitcast(b.i16_val(0xffc0), bf16_ty);
+      } else {
+        nan = b.bitcast(b.i16_val(0x7e00), f16_ty);
+        negNan = b.bitcast(b.i16_val(0xfe00), f16_ty);
+      }
+      for (size_t i = 0; i < outVals.size(); i++) {
+        Value input = operands[i][0];
+        Value magnitude = b.and_(input, b.i8_val(0x7f));
+        Value isNan = b.icmp_eq(magnitude, b.i8_val(0x7f));
+        Value isNegative =
+            b.icmp_eq(b.and_(input, b.i8_val(0x80)), b.i8_val(0x80));
+        outVals[i] =
+            b.select(isNan, b.select(isNegative, negNan, nan), outVals[i]);
+      }
+    }
     if (isDstFP32)
       for (Value &v : outVals)
         v = convertFp16ToFp32(loc, rewriter, v);
