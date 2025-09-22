@@ -17,8 +17,7 @@
 #include <Python.h>
 
 typedef struct {
-  PyObject_HEAD;
-  _Alignas(alignof(CUtensorMap)) CUtensorMap tensorMap;
+  PyObject_HEAD _Alignas(alignof(CUtensorMap)) CUtensorMap tensorMap;
 } PyCUtensorMapObject;
 
 typedef enum { ARG_CONSTEXPR = 0, ARG_KERNEL = 1, ARG_TUPLE = 2 } ArgType;
@@ -493,7 +492,12 @@ static PyObject *PyCUtensorMap_alloc(PyTypeObject *type, Py_ssize_t n_items) {
   void *mem = NULL;
   size_t size = type->tp_basicsize;
 
+#ifdef _WIN32
+  mem = _aligned_malloc(size, 128);
+  if (mem == NULL) {
+#else
   if (posix_memalign(&mem, 128, size) != 0) {
+#endif
     PyErr_NoMemory();
     return NULL;
   }
@@ -507,7 +511,13 @@ static void PyCUtensorMap_dealloc(PyObject *self) {
   Py_TYPE(self)->tp_free(self);
 }
 
-static void PyCUtensorMap_free(void *ptr) { free(ptr); }
+static void PyCUtensorMap_free(void *ptr) {
+#ifdef _WIN32
+  _aligned_free(ptr);
+#else
+  free(ptr);
+#endif
+}
 
 // clang-format off
 static PyTypeObject PyCUtensorMapType = {
