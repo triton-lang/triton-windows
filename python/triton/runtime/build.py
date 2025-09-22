@@ -92,10 +92,10 @@ def _cc_cmd(cc: str, src: str, out: str, include_dirs: list[str], library_dirs: 
     if is_msvc(cc):
         out_base = os.path.splitext(out)[0]
         cc_cmd = [cc, src, "/nologo", "/O2", "/LD", "/wd4819"]
-
-        if language == "c++":
+        if language == "c":
+            cc_cmd += ["/std:c11"]
+        elif language == "c++":
             cc_cmd += ["/std:c++17"]
-
         cc_cmd += [f"/I{dir}" for dir in include_dirs if dir is not None]
         cc_cmd += [f"/Fo{out_base + '.obj'}"]
         cc_cmd += ["/link"]
