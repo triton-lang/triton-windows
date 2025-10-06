@@ -340,14 +340,15 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
         helper_args=helper_args,
     )
     if _normalize_bool(os.getenv("TRITON_BUILD_PROTON", "ON")):  # Default ON
+        crt = "crt" if int(nvidia_toolchain_version["cudacrt"].split(".")[0]) >= 13 else "nvcc"
         download_and_copy(
-            name="nvidia/nvcc-" + nvidia_toolchain_version["cudacrt"],
-            src_func=lambda system, arch, version: f"cuda_nvcc-{system}-{arch}-{version}-archive/include",
+            name=f"nvidia/{crt}-" + nvidia_toolchain_version["cudacrt"],
+            src_func=lambda system, arch, version: f"cuda_{crt}-{system}-{arch}-{version}-archive/include",
             dst_path="third_party/nvidia/backend/include",
             override_path=helper_args.cudacrt_path,
             version=nvidia_toolchain_version["cudacrt"],
             url_func=lambda system, arch, version:
-            f"https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvcc/{system}-{arch}/cuda_nvcc-{system}-{arch}-{version}-archive{archive_extension}",
+            f"https://developer.download.nvidia.com/compute/cuda/redist/cuda_{crt}/{system}-{arch}/cuda_{crt}-{system}-{arch}-{version}-archive{archive_extension}",
             helper_args=helper_args,
         )
         download_and_copy(
