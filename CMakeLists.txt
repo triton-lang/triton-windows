@@ -295,7 +295,7 @@ if(NOT MSVC)
   # migration. Keep their deprecation warnings visible but non-fatal.
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=deprecated-declarations")
 else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX /wd4244 /wd4624")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX /wd4244 /wd4293 /wd4624")
 endif()
 
 include_directories(".")
