@@ -27,17 +27,22 @@ def _find_compiler(language: str) -> str:
         cc = os.environ.get("CC")
         if cc is not None:
             return cc
+        # clang-cl from TheRock ROCm wheels (handles HIP C headers that mix C/C++ constructs)
+        cc = os.path.join(sysconfig.get_path("platlib"), "_rocm_sdk_core", "lib", "llvm", "bin", "clang-cl.exe")
+        if os.path.exists(cc):
+            return cc
         if os.name == "nt":
+            # Find and check MSVC and Windows SDK from environment variables set by Launch-VsDevShell.ps1 or VsDevCmd.bat
             cc, _, _ = find_msvc_winsdk(env_only=True)
             if cc is not None:
                 return cc
         # Bundled TinyCC
-        cc = os.path.join(sysconfig.get_paths()["platlib"], "triton", "runtime", "tcc", "tcc.exe")
+        cc = os.path.join(sysconfig.get_path("platlib"), "triton", "runtime", "tcc", "tcc.exe")
         if os.path.exists(cc):
             return cc
         cl = shutil.which("cl")
-        clang = shutil.which("clang")
         gcc = shutil.which("gcc")
+        clang = shutil.which("clang")
         cc = cl if cl is not None else gcc if gcc is not None else clang
         if cc is not None:
             return cc
@@ -48,13 +53,16 @@ def _find_compiler(language: str) -> str:
     cxx = os.environ.get("CXX")
     if cxx is not None:
         return cxx
+    cxx = os.path.join(sysconfig.get_path("platlib"), "_rocm_sdk_core", "lib", "llvm", "bin", "clang-cl.exe")
+    if os.path.exists(cxx):
+        return cxx
     if os.name == "nt":
         cxx, _, _ = find_msvc_winsdk(env_only=True)
         if cxx is not None:
             return cxx
     cl = shutil.which("cl")
-    clangxx = shutil.which("clang++")
     gxx = shutil.which("g++")
+    clangxx = shutil.which("clang++")
     cxx = cl if cl is not None else gxx if gxx is not None else clangxx
     if cxx is not None:
         return cxx
@@ -82,6 +90,11 @@ def is_msvc(cc):
     return cc == "cl" or cc == "cl.exe"
 
 
+def is_clang_cl(cc):
+    cc = os.path.basename(cc).lower()
+    return cc == "clang-cl" or cc == "clang-cl.exe"
+
+
 def is_clang(cc):
     cc = os.path.basename(cc).lower()
     return cc == "clang" or cc == "clang.exe"
@@ -89,7 +102,7 @@ def is_clang(cc):
 
 def _cc_cmd(cc: str, src: str, out: str, include_dirs: list[str], library_dirs: list[str], libraries: list[str],
             ccflags: list[str], language: str) -> list[str]:
-    if is_msvc(cc):
+    if is_msvc(cc) or is_clang_cl(cc):
         out_base = os.path.splitext(out)[0]
         cc_cmd = [cc, src, "/nologo", "/O2", "/LD", "/wd4819"]
         if language == "c":
@@ -150,7 +163,7 @@ def _build(name: str, src: str, srcdir: str, library_dirs: list[str], include_di
         if sysconfig.get_config_var("Py_GIL_DISABLED"):
             version += "t"
         libraries = libraries + [f"python{version}"]
-    if is_msvc(cc):
+    if is_msvc(cc) or is_clang_cl(cc):
         _, msvc_winsdk_inc_dirs, msvc_winsdk_lib_dirs = find_msvc_winsdk()
         include_dirs = include_dirs + msvc_winsdk_inc_dirs
         library_dirs = library_dirs + msvc_winsdk_lib_dirs

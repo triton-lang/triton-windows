@@ -1,12 +1,77 @@
 #define __HIP_PLATFORM_AMD__
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
-#include <dlfcn.h>
 #include <hip/hip_runtime.h>
 #include <hip/hip_runtime_api.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifdef _WIN32
+#include <malloc.h>
+#include <windows.h>
+// Windows compatibility layer for dlopen/dlsym/dlclose/dlerror
+#define RTLD_NOW 0
+#define RTLD_LAZY 0
+#define RTLD_LOCAL 0
+static char dlerror_buf[512];
+// Format a Windows error code into a human-readable message.
+static void win32_format_error(char *buf, size_t bufsize, const char *context,
+                               DWORD err) {
+  char msg[256] = {0};
+  DWORD len =
+      FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                     NULL, err, 0, msg, sizeof(msg), NULL);
+  // Strip trailing \r\n
+  while (len > 0 && (msg[len - 1] == '\r' || msg[len - 1] == '\n'))
+    msg[--len] = '\0';
+  snprintf(buf, bufsize, "%s: %s (error %lu)", context,
+           len ? msg : "Unknown error", (unsigned long)err);
+}
+static inline void *dlopen(const char *filename, int flags) {
+  (void)flags;
+  // Reuse HIP DLL if already loaded to share GPU memory context
+  const char *basename = strrchr(filename, '\\') + 1;
+  HMODULE h = GetModuleHandleA(basename);
+  if (!h) {
+    h = LoadLibraryA(filename);
+    if (!h) {
+      char context[256];
+      snprintf(context, sizeof(context), "LoadLibrary failed for '%s'",
+               filename);
+      win32_format_error(dlerror_buf, sizeof(dlerror_buf), context,
+                         GetLastError());
+    }
+  }
+  return (void *)h;
+}
+static inline void *dlsym(void *handle, const char *symbol) {
+  void *p = (void *)GetProcAddress((HMODULE)handle, symbol);
+  if (!p) {
+    char context[256];
+    snprintf(context, sizeof(context), "GetProcAddress failed for '%s'",
+             symbol);
+    win32_format_error(dlerror_buf, sizeof(dlerror_buf), context,
+                       GetLastError());
+  }
+  return p;
+}
+static inline int dlclose(void *handle) {
+  return FreeLibrary((HMODULE)handle) ? 0 : -1;
+}
+static inline const char *dlerror(void) {
+  return dlerror_buf[0] ? dlerror_buf : NULL;
+}
+#else
+#include <alloca.h>
+#include <dlfcn.h>
+#endif
+
+#ifdef _WIN32
+#define HIP_LIB_NAME "amdhip64.dll"
+#else
+#define HIP_LIB_NAME "libamdhip64.so"
+#endif
 
 // Include shared TDM utilities
 #include "TDMCommon.h"
@@ -324,7 +389,7 @@ static int checkDriverVersion(void *lib) {
   error = dlerror();
   if (error) {
     PyErr_SetString(PyExc_RuntimeError,
-                    "cannot query 'hipDriverGetVersion' from libamdhip64.so");
+                    "cannot query 'hipDriverGetVersion' from " HIP_LIB_NAME);
     dlclose(lib);
     return -1;
   }
@@ -339,9 +404,9 @@ static int checkDriverVersion(void *lib) {
     const int hipPatchVersion =
         TRITON_HIP_DRIVER_EXTRACT_PATCH_VERSION(hipVersion);
     snprintf(msgBuff, sizeof(msgBuff),
-             "libamdhip64 version %d.%d.%d is not supported! Required major "
+             "%s version %d.%d.%d is not supported! Required major "
              "version is >=%d.",
-             hipMajVersion, hipMinVersion, hipPatchVersion,
+             HIP_LIB_NAME, hipMajVersion, hipMinVersion, hipPatchVersion,
              TRITON_HIP_DRIVER_REQ_MAJOR_VERSION);
     PyErr_SetString(PyExc_RuntimeError, msgBuff);
     dlclose(lib);
@@ -367,7 +432,7 @@ bool initSymbolTable() {
   }
 
   if (!lib) {
-    PyErr_SetString(PyExc_RuntimeError, "cannot open libamdhip64.so");
+    PyErr_SetString(PyExc_RuntimeError, "cannot open " HIP_LIB_NAME);
     return false;
   }
 
@@ -386,7 +451,7 @@ bool initSymbolTable() {
   error = dlerror();
   if (error) {
     PyErr_SetString(PyExc_RuntimeError,
-                    "cannot query 'hipGetProcAddress' from libamdhip64.so");
+                    "cannot query 'hipGetProcAddress' from " HIP_LIB_NAME);
     dlclose(lib);
     return false;
   }
@@ -402,7 +467,7 @@ bool initSymbolTable() {
   if (required && status != hipSuccess) {                                      \
     PyErr_SetString(PyExc_RuntimeError,                                        \
                     "cannot get address for '" #hipSymbolName                  \
-                    "' from libamdhip64.so");                                  \
+                    "' from " HIP_LIB_NAME);                                   \
     dlclose(lib);                                                              \
     return false;                                                              \
   }
