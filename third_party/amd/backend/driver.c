@@ -176,7 +176,7 @@ static bool encodeTDMDescriptor(TDMDescriptor *desc, int elementBitWidth,
   // used by a copy without an explicit pred update doesn't silently no-op.
   desc->group0_0 = 1;
   desc->group0_2 = (uint32_t)(globalAddress & 0xFFFFFFFF);
-  desc->group0_3 = (uint32_t)((globalAddress >> 32) & 0x7FFFFFFF) | (0x1 << 31);
+  desc->group0_3 = (uint32_t)((globalAddress >> 32) & 0x7FFFFFFF) | (1U << 31);
 
   // group1 (256 bits / 8 dwords) effective bit encoding:
   // [15:0]:    multicast mask
