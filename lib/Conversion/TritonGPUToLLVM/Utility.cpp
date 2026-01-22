@@ -1326,7 +1326,8 @@ void shuffleFromCanonicalLane(Location loc, MutableArrayRef<Value> values,
   auto b = TritonLLVMOpBuilder(loc, rewriter);
   Value sourceLane = b.i32_val(0);
   if (laneMask != triton::gpu::lookupThreadsPerWarp(rewriter) - 1)
-    sourceLane = b.and_(getLaneId(rewriter, loc), b.i32_val(~laneMask));
+    sourceLane = b.and_(getLaneId(rewriter, loc),
+                        b.i32_val(static_cast<uint32_t>(~laneMask)));
   for (Value &value : values)
     value = targetInfo.shuffleIdx(rewriter, loc, value, sourceLane);
 }

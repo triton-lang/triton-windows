@@ -124,7 +124,8 @@ private:
     Value shifted = b.and_(b.add(index, b.i32_val(distance)), b.i32_val(mask));
     if (segmentsPerScan == numSegments)
       return shifted;
-    return b.or_(b.and_(index, b.i32_val(~mask)), shifted);
+    return b.or_(b.and_(index, b.i32_val(static_cast<uint32_t>(~mask))),
+                 shifted);
   }
 
   // Reindex SSA values without emitting data movement.
