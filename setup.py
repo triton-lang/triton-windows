@@ -797,7 +797,7 @@ def get_entry_points():
     return entry_points
 
 
-def get_backend_package_data(path, exclude_dirs=("__pycache__", "include"), include_files=("include/cuda.h", )):
+def get_backend_package_data(path, exclude_dirs=["__pycache__"], include_files=[]):
     if path is None or not os.path.exists(path):
         return []
     out = [
