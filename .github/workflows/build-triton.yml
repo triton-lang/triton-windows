@@ -62,7 +62,7 @@ jobs:
           pip install --upgrade cibuildwheel
 
           git config --global core.autocrlf false
-          git clone --branch ${{ inputs.git_tag }} --depth 1 https://github.com/woct0rdho/triton-windows.git
+          git clone --branch ${{ inputs.git_tag }} --depth 1 https://github.com/triton-lang/triton-windows.git
           cd triton-windows
           git rev-parse HEAD
 
