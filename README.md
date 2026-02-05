@@ -2,13 +2,6 @@
 
 Based on [andreigh](https://github.com/andreigh/triton/tree/windows), [wkpark](https://github.com/wkpark/triton/tree/windows-fix), [mantaionut](https://github.com/mantaionut/triton/tree/windows_support), [eaplatanios](https://github.com/eaplatanios/triton/tree/windows-fix), [anmyachev](https://github.com/triton-lang/triton/issues?q=author%3Aanmyachev), and more development in the community. Thank you all!
 
-## Why?
-
-* Free software should run on non-free platforms, as per Richard Stallman
-* This is required by `torch.compile`, and torchao, SageAttention, Unsloth, and more packages
-* Memory/disk swap on WSL is hard
-* Local AI matters
-
 ## What's supported
 
 * `triton.jit` and `torch.compile` just work
@@ -512,4 +505,4 @@ If you see `Exception Code: 0x80000003` in `libtriton.pyd` in a function like `r
 
 ## Build from source
 
-See [BUILD.md](https://github.com/woct0rdho/triton-windows/blob/readme/BUILD.md). This is for developers.
+See [BUILD.md](https://github.com/triton-lang/triton-windows/blob/readme/BUILD.md). This is for developers.
