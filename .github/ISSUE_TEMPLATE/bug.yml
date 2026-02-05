@@ -9,7 +9,7 @@ body:
       #### Disclaimer
       The core triton team is small and has very limited capacity. We may not have time to look into your report.
       For the best results, please:
-        - Read the instructions in README: https://github.com/woct0rdho/triton-windows
+        - Read the instructions in README: https://github.com/triton-lang/triton-windows
         - Use the test script in README to check if Triton itself works, and read the troubleshoot below the test script.
         - Avoid submitting duplicates. Search through [the existing and past issues](https://github.com/triton-lang/triton/issues?q=is%3Aissue+sort%3Acreated-desc+) first to see if it's been reported previously.
         - Check if all your Python packages, including Triton and PyTorch, are upgraded to the latest version.
