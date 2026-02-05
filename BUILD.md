@@ -152,7 +152,7 @@ GPU is not required to build the wheel, but is required to run the unit tests.
     * Create a tag for the runner, and change the value of `runs-on:` in the workflow yml to this tag
     * Start the runner service after setting PATH of Python and Git
 
-Then build the wheel and run the unit tests using https://github.com/woct0rdho/triton-windows/blob/readme/.github/workflows/build-and-test-triton.yml
+Then build the wheel and run the unit tests using https://github.com/triton-lang/triton-windows/blob/readme/.github/workflows/build-and-test-triton.yml
 
 ## Dev notes
 
