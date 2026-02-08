@@ -628,6 +628,7 @@ static void hoistInvariantInputs(Operation *mmaOp, scf::ForOp forOp) {
 
 struct HoistTMEMAlloc
     : public impl::TritonGPUHoistTMEMAllocBase<HoistTMEMAlloc> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(HoistTMEMAlloc)
   using impl::TritonGPUHoistTMEMAllocBase<
       HoistTMEMAlloc>::TritonGPUHoistTMEMAllocBase;
 

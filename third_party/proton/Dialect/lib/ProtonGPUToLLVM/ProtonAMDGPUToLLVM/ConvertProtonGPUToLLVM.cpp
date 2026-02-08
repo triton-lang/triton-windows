@@ -42,6 +42,7 @@ public:
 struct ConvertProtonAMDGPUToLLVM
     : public mlir::triton::proton::gpu::impl::ConvertProtonAMDGPUToLLVMBase<
           ConvertProtonAMDGPUToLLVM> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertProtonAMDGPUToLLVM)
   explicit ConvertProtonAMDGPUToLLVM(std::string gfxArch) {
     this->gfxArch = gfxArch;
   }

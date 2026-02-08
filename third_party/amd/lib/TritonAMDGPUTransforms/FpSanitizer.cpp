@@ -118,6 +118,7 @@ void populateAmdFpSanPatterns(RewritePatternSet &patterns) {
 class TritonAMDGPUFpSanitizerPass
     : public impl::TritonAMDGPUFpSanitizerBase<TritonAMDGPUFpSanitizerPass> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TritonAMDGPUFpSanitizerPass)
   void runOnOperation() override {
     RewritePatternSet patterns(&getContext());
     populateAmdFpSanPatterns(patterns);

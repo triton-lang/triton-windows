@@ -105,6 +105,7 @@ struct LocalLoadOpPattern : public OpConversionPattern<LocalLoadOp> {
 class RelayoutTritonGPU
     : public triton::impl::RelayoutTritonGPUBase<RelayoutTritonGPU> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RelayoutTritonGPU)
   using RelayoutTritonGPUBase::RelayoutTritonGPUBase;
 
   void runOnOperation() override {

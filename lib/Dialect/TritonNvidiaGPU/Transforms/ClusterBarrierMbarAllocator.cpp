@@ -37,6 +37,7 @@ bool atomicNeedsClusterBarrier(Operation *op) {
 struct ClusterBarrierMbarAllocatorPass
     : public impl::TritonNvidiaGPUClusterBarrierMbarAllocatorPassBase<
           ClusterBarrierMbarAllocatorPass> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ClusterBarrierMbarAllocatorPass)
   void runOnOperation() override {
     runClusterBarrierMbarAllocator(getOperation());
   }

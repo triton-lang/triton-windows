@@ -20,6 +20,7 @@ namespace {
 struct AllocateAMDGPUSharedMemory
     : public mlir::triton::impl::AllocateAMDGPUSharedMemoryBase<
           AllocateAMDGPUSharedMemory> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AllocateAMDGPUSharedMemory)
   AllocateAMDGPUSharedMemory(StringRef arch) { this->arch = arch.str(); }
 
   void runOnOperation() override {

@@ -86,6 +86,7 @@ namespace {
 struct AllocateWarpGroups
     : public mlir::triton::gpu::impl::TritonGPUAllocateWarpGroupsBase<
           AllocateWarpGroups> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AllocateWarpGroups)
   using TritonGPUAllocateWarpGroupsBase::TritonGPUAllocateWarpGroupsBase;
 
   void runOnOperation() override {
