@@ -1438,6 +1438,7 @@ void assignPartitionsForOpsWithNoUse(Graph *graph) {
 
 struct PartitionScheduling
     : public impl::TritonGPUPartitionSchedulingBase<PartitionScheduling> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PartitionScheduling)
   using TritonGPUPartitionSchedulingBase::TritonGPUPartitionSchedulingBase;
 
   void runOnOperation() override {
