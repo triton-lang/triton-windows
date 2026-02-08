@@ -1121,6 +1121,7 @@ private:
 class FpSanitizerPass
     : public impl::TritonInstrumentFpSanitizerBase<FpSanitizerPass> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(FpSanitizerPass)
   void runOnOperation() override {
     bool hasUnsupportedOperations = false;
     getOperation()->walk([&hasUnsupportedOperations](Operation *op) {
