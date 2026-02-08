@@ -281,6 +281,7 @@ using CombineDotScaledAddFPattern =
 
 class CombineOpsPass : public impl::TritonCombineOpsBase<CombineOpsPass> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(CombineOpsPass)
   void runOnOperation() override {
     MLIRContext *context = &getContext();
     RewritePatternSet patterns(context);
