@@ -1622,6 +1622,8 @@ class TritonGPURemoveLayoutConversionsPass
     : public impl::TritonGPURemoveLayoutConversionsBase<
           TritonGPURemoveLayoutConversionsPass> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
+      TritonGPURemoveLayoutConversionsPass)
   using impl::TritonGPURemoveLayoutConversionsBase<
       TritonGPURemoveLayoutConversionsPass>::
       TritonGPURemoveLayoutConversionsBase;

@@ -159,6 +159,8 @@ class TritonNvidiaGPUFuseTMEMLoadReducePass
     : public impl::TritonNvidiaGPUFuseTMEMLoadReducePassBase<
           TritonNvidiaGPUFuseTMEMLoadReducePass> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
+      TritonNvidiaGPUFuseTMEMLoadReducePass)
   using TritonNvidiaGPUFuseTMEMLoadReducePassBase<
       TritonNvidiaGPUFuseTMEMLoadReducePass>::
       TritonNvidiaGPUFuseTMEMLoadReducePassBase;

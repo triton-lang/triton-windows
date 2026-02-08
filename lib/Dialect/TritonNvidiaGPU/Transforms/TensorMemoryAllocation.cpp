@@ -391,6 +391,7 @@ class TritonTensorMemoryAllocationPass
     : public impl::TritonTensorMemoryAllocationPassBase<
           TritonTensorMemoryAllocationPass> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TritonTensorMemoryAllocationPass)
   IntegerAttr getI32Attr(int32_t value) {
     return Builder(&getContext()).getI32IntegerAttr(value);
   }

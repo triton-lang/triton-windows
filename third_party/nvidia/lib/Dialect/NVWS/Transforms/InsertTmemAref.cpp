@@ -918,6 +918,7 @@ LogicalResult runOnFunction(triton::FuncOp funcOp) {
 class NVWSTmemArefInsertion
     : public triton::impl::NVWSInsertTmemArefBase<NVWSTmemArefInsertion> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(NVWSTmemArefInsertion)
   void runOnOperation() override {
     auto walkResult = getOperation().walk([&](triton::FuncOp funcOp) {
       if (failed(runOnFunction(funcOp)))
