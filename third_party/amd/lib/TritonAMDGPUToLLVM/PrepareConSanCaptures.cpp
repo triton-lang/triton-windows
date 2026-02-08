@@ -21,6 +21,7 @@ namespace tti = mlir::triton::instrument;
 struct PrepareConSanCaptures
     : public mlir::triton::impl::PrepareConSanCapturesBase<
           PrepareConSanCaptures> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PrepareConSanCaptures)
   void runOnOperation() override {
     ModuleOp mod = getOperation();
 

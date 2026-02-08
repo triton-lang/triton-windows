@@ -358,6 +358,7 @@ static void instrumentAsyncTMAScatter(ttng::AsyncTMAScatterOp op) {
 class GlobalSanitizerPass
     : public impl::TritonInstrumentGlobalSanitizerBase<GlobalSanitizerPass> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(GlobalSanitizerPass)
   void runOnOperation() override {
     ModuleOp module = getOperation();
     OpBuilder builder(module);

@@ -1540,6 +1540,8 @@ class TritonGPURemoveLayoutConversionsPass
     : public impl::TritonGPURemoveLayoutConversionsBase<
           TritonGPURemoveLayoutConversionsPass> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
+      TritonGPURemoveLayoutConversionsPass)
   // Cleanup convert ops.
   void cleanupConvertOps() {
     MLIRContext *context = &getContext();

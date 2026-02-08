@@ -190,6 +190,8 @@ class TritonAMDGPUOptimizeDescriptorEncodingPass
     : public impl::TritonAMDGPUOptimizeDescriptorEncodingBase<
           TritonAMDGPUOptimizeDescriptorEncodingPass> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
+      TritonAMDGPUOptimizeDescriptorEncodingPass)
   void runOnOperation() override {
     mlir::ModuleOp m = getOperation();
 
