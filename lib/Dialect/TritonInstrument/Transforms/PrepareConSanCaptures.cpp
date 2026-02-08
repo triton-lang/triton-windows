@@ -78,6 +78,7 @@ class PrepareConSanCaptures
     : public impl::TritonInstrumentPrepareConSanCapturesBase<
           PrepareConSanCaptures> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PrepareConSanCaptures)
   using impl::TritonInstrumentPrepareConSanCapturesBase<
       PrepareConSanCaptures>::TritonInstrumentPrepareConSanCapturesBase;
 
