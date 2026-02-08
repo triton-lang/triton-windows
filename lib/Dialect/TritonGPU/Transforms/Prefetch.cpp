@@ -730,6 +730,7 @@ scf::ForOp Prefetcher::createNewForOp() {
 } // anonymous namespace
 
 struct PrefetchPass : public impl::TritonGPUPrefetchBase<PrefetchPass> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PrefetchPass)
   void runOnOperation() override {
 
     // Canonicalize convert ops to make the pattern matching easier.
