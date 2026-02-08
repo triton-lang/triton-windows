@@ -446,6 +446,7 @@ class ConcurrencySanitizerPass
     : public impl::TritonInstrumentConcurrencySanitizerBase<
           ConcurrencySanitizerPass> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConcurrencySanitizerPass)
   void runOnOperation() override {
     ModuleOp module = getOperation();
     auto targetAttr = module->getAttrOfType<StringAttr>(ttg::AttrTargetName);
