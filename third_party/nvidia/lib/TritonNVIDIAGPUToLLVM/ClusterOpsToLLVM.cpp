@@ -245,6 +245,7 @@ private:
 struct InitializeWSClusterBarriers
     : public mlir::triton::impl::InitializeWSClusterBarriersBase<
           InitializeWSClusterBarriers> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InitializeWSClusterBarriers)
   using InitializeWSClusterBarriersBase::InitializeWSClusterBarriersBase;
 
   void runOnOperation() override {

@@ -288,6 +288,7 @@ void TMemBarrierAnalysis::update(Operation *op, BlockInfo *blockInfo,
 struct TMemBarrierInsertionPass
     : public impl::TritonNvidiaGPUTMemBarrierInsertionPassBase<
           TMemBarrierInsertionPass> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TMemBarrierInsertionPass)
   using impl::TritonNvidiaGPUTMemBarrierInsertionPassBase<
       TMemBarrierInsertionPass>::TritonNvidiaGPUTMemBarrierInsertionPassBase;
 

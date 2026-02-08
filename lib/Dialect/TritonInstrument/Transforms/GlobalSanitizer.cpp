@@ -354,6 +354,7 @@ static Value getGSanStateForCall(tt::CallOp callOp, Value gsanState) {
 class GlobalSanitizerPass
     : public impl::TritonInstrumentGlobalSanitizerBase<GlobalSanitizerPass> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(GlobalSanitizerPass)
   void runOnOperation() override {
     ModuleOp module = getOperation();
     OpBuilder builder(module);
