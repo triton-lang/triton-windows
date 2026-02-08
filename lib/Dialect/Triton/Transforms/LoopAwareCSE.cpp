@@ -127,6 +127,7 @@ static void loopCSE(scf::ForOp loop) {
 namespace {
 struct LoopAwareCSE
     : public triton::impl::TritonLoopAwareCSEBase<LoopAwareCSE> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LoopAwareCSE)
   using TritonLoopAwareCSEBase::TritonLoopAwareCSEBase;
 
   void runOnOperation() override {
