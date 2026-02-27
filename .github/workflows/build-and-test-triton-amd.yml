@@ -67,7 +67,7 @@ jobs:
           $Env:CIBW_BUILD = "{cp3${{ inputs.python_minor }}-win_amd64,}"
           $Env:CIBW_BUILD_VERBOSITY = "1"
           $Env:CIBW_ENABLE = "cpython-freethreading"
-          rm wheelhouse/*
+          if (Test-Path -Path wheelhouse) { rm wheelhouse/* }
           if (Test-Path -Path setup.py)
           {
             cibuildwheel .
