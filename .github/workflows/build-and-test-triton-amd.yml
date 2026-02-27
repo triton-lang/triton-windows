@@ -92,5 +92,8 @@ jobs:
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
           if (Test-Path -Path ~/.triton/cache) { rm -r ~/.triton/cache }
+          $rocmClang = python -c "import importlib.util, os; spec = importlib.util.find_spec('_rocm_sdk_devel'); print(os.path.join(os.path.dirname(spec.origin), 'lib', 'llvm', 'bin', 'clang-cl.exe'))"
+          $Env:CC = $rocmClang
+          Write-Host "CC=$Env:CC"
           cd ../python/test/unit
           pytest ${{ inputs.pytest_args }}
