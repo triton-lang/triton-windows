@@ -31,7 +31,7 @@ jobs:
       - name: Create venv
         shell: powershell
         run: |
-          uv venv .venv-cp3${{ inputs.python_minor }} --python 3.${{ inputs.python_minor }}.10
+          uv venv .venv-cp3${{ inputs.python_minor }} --python 3.${{ inputs.python_minor }}.10 --clear
           .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
           python -m ensurepip --upgrade
           python -m pip install --upgrade pip
