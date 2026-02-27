@@ -1,0 +1,89 @@
+# This workflow does not clean caches before building,
+# so the wheel may contain __pycache__ or files from another branch
+
+name: Build and Test Triton (AMD)
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_tag:
+        description: Git tag
+        required: true
+        type: string
+        default: main-windows
+      python_minor:
+        description: Python minor version
+        required: true
+        type: string
+        default: '12'
+      pytest_args:
+        description: pytest args
+        required: true
+        type: string
+        default: '-n 0 -s --tb=short'
+
+jobs:
+  build-and-test-triton:
+    runs-on: triton-windows1
+    steps:
+      - name: Create venv
+        shell: powershell
+        run: |
+          pip install --upgrade uv
+          uv venv .venv-cp3${{ inputs.python_minor }} --python 3.${{ inputs.python_minor }}
+          .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
+          python -m ensurepip --upgrade
+          python -m pip install --upgrade pip
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build wheel
+        shell: powershell
+        run: |
+          .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
+          python -m pip install --upgrade cibuildwheel
+
+          git config --global core.autocrlf false
+          if (Test-Path -Path triton-windows)
+          {
+            cd triton-windows
+            git add .
+            git reset --hard HEAD
+            git fetch origin ${{ inputs.git_tag }} --depth 1
+            git checkout FETCH_HEAD -B ${{ inputs.git_tag }}
+          }
+          else
+          {
+            git clone --branch ${{ inputs.git_tag }} --depth 1 https://github.com/triton-lang/triton-windows.git
+            cd triton-windows
+          }
+          git rev-parse HEAD
+
+          $Env:TRITON_BUILD_BINARY = "0"
+          $Env:TRITON_BUILD_PROTON = "0"
+          $Env:TRITON_BUILD_UT = "0"
+          $Env:TRITON_LLVM_SYSTEM_SUFFIX = "windows-x64"
+          $Env:CIBW_BUILD = "{cp3${{ inputs.python_minor }}-win_amd64,}"
+          $Env:CIBW_BUILD_VERBOSITY = "1"
+          $Env:CIBW_ENABLE = "cpython-freethreading"
+          rm wheelhouse/*
+          if (Test-Path -Path setup.py)
+          {
+            cibuildwheel .
+          }
+          else
+          {
+            cibuildwheel python
+          }
+
+      - name: Unit test
+        shell: powershell
+        run: |
+          .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
+          python -m pip install --upgrade numpy pytest-xdist scipy
+          pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ torch "rocm[core,devel]"
+          cd triton-windows/wheelhouse
+          python -m pip install $(Get-ChildItem | Select-Object -First 1)
+          rm -r ~/.triton/cache
+          cd ../python/test/unit
+          pytest ${{ inputs.pytest_args }}
