@@ -27,6 +27,7 @@ jobs:
     runs-on: triton-windows1
     env:
       PIP_CACHE_DIR: E:\pip-cache
+      CC: clang-cl
     steps:
       - uses: astral-sh/setup-uv@v5
 
@@ -39,6 +40,8 @@ jobs:
           python -m pip install --upgrade pip
 
       - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64
 
       - name: Build wheel
         shell: powershell
