@@ -85,6 +85,6 @@ jobs:
           python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ torch "rocm[core,devel]"
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
-          rm -r ~/.triton/cache
+          if (Test-Path -Path ~/.triton/cache) { rm -r ~/.triton/cache }
           cd ../python/test/unit
           pytest ${{ inputs.pytest_args }}
