@@ -25,6 +25,8 @@ on:
 jobs:
   build-and-test-triton:
     runs-on: triton-windows1
+    env:
+      PIP_CACHE_DIR: E:\pip-cache
     steps:
       - uses: astral-sh/setup-uv@v5
 
