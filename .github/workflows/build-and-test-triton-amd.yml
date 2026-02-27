@@ -26,10 +26,14 @@ jobs:
   build-and-test-triton:
     runs-on: triton-windows1
     steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.${{ inputs.python_minor }}'
+
       - name: Create venv
         shell: powershell
         run: |
-          pip install --upgrade uv
+          python -m pip install --upgrade uv
           uv venv .venv-cp3${{ inputs.python_minor }} --python 3.${{ inputs.python_minor }}
           .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
           python -m ensurepip --upgrade
@@ -81,7 +85,7 @@ jobs:
         run: |
           .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
           python -m pip install --upgrade numpy pytest-xdist scipy
-          pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ torch "rocm[core,devel]"
+          python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ torch "rocm[core,devel]"
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
           rm -r ~/.triton/cache
