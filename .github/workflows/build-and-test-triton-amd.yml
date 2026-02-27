@@ -26,14 +26,11 @@ jobs:
   build-and-test-triton:
     runs-on: triton-windows1
     steps:
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.${{ inputs.python_minor }}'
+      - uses: astral-sh/setup-uv@v5
 
       - name: Create venv
         shell: powershell
         run: |
-          python -m pip install --upgrade uv
           uv venv .venv-cp3${{ inputs.python_minor }} --python 3.${{ inputs.python_minor }}
           .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
           python -m ensurepip --upgrade
