@@ -87,7 +87,7 @@ jobs:
           Import-Module "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
           Enter-VsDevShell -VsInstallPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" -DevCmdArguments "-arch=amd64" -SkipAutomaticLocation
           .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
-          python -m pip install --upgrade numpy pytest-xdist scipy
+          python -m pip install --upgrade numpy pytest-xdist scipy expecttest
           python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ torch "rocm[core,devel]"
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
