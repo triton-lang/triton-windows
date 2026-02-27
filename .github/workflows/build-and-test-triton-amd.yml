@@ -86,7 +86,7 @@ jobs:
         run: |
           .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
           python -m pip install --upgrade numpy pytest-xdist scipy expecttest
-          python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ torch "rocm[core,devel]"
+          python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ torch "rocm[libraries,devel]"
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
           if (Test-Path -Path ~/.triton/cache) { rm -r ~/.triton/cache }
