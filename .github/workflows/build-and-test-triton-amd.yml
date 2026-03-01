@@ -45,8 +45,7 @@ jobs:
       - name: Build wheel
         shell: powershell
         run: |
-          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
-          & "$vsPath\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
+          & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
           .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
           python -m pip install --upgrade cibuildwheel
 
@@ -86,8 +85,7 @@ jobs:
       - name: Unit test
         shell: powershell
         run: |
-          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
-          & "$vsPath\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
+          & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
           .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
           python -m pip install --upgrade numpy pytest-xdist scipy expecttest
           python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ torch "rocm[libraries,devel]"
