@@ -1,6 +1,3 @@
-# This workflow does not clean caches before building,
-# so the wheel may contain __pycache__ or files from another branch
-
 name: Build and Test Triton (AMD)
 
 on:
@@ -30,6 +27,13 @@ jobs:
     steps:
       - uses: astral-sh/setup-uv@v5
 
+      - name: Clean caches
+        shell: powershell
+        run: |
+          if (Test-Path -Path ~/.triton) { rm -r ~/.triton }
+          if (Test-Path -Path triton-windows/build) { rm -r triton-windows/build }
+          if (Test-Path -Path triton-windows/python/build) { rm -r triton-windows/python/build }
+
       - name: Create venv
         shell: powershell
         run: |
@@ -38,13 +42,11 @@ jobs:
           python -m ensurepip --upgrade
           python -m pip install --upgrade pip
 
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: amd64
-
       - name: Build wheel
         shell: powershell
         run: |
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          & "$vsPath\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
           .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
           python -m pip install --upgrade cibuildwheel
 
@@ -84,12 +86,13 @@ jobs:
       - name: Unit test
         shell: powershell
         run: |
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          & "$vsPath\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
           .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
           python -m pip install --upgrade numpy pytest-xdist scipy expecttest
           python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ torch "rocm[libraries,devel]"
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
-          if (Test-Path -Path ~/.triton/cache) { rm -r ~/.triton/cache }
           $rocmClang = python -c "import sysconfig, os; print(os.path.join(sysconfig.get_path('purelib'), '_rocm_sdk_devel', 'lib', 'llvm', 'bin', 'clang-cl.exe'))"
           $Env:CC = $rocmClang
           Write-Host "CC=$Env:CC"
