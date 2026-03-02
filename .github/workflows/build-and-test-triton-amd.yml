@@ -91,8 +91,5 @@ jobs:
           python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ torch "rocm[libraries,devel]"
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
-          $rocmClang = python -c "import sysconfig, os; print(os.path.join(sysconfig.get_path('purelib'), '_rocm_sdk_devel', 'lib', 'llvm', 'bin', 'clang-cl.exe'))"
-          $Env:CC = $rocmClang
-          Write-Host "CC=$Env:CC"
           cd ../python/test/unit
           pytest ${{ inputs.pytest_args }}
