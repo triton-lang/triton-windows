@@ -24,6 +24,11 @@ if os.name == "nt":
 def get_cc():
     cc = os.environ.get("CC")
     if cc is None:
+        # clang-cl from TheRock ROCm wheels (handles HIP C headers that mix C/C++ constructs)
+        cc = os.path.join(sysconfig.get_path("purelib"), "_rocm_sdk_core", "lib", "llvm", "bin", "clang-cl.exe")
+        if not os.path.exists(cc):
+            cc = None
+    if cc is None:
         # Find and check MSVC and Windows SDK from environment variables set by Launch-VsDevShell.ps1 or VsDevCmd.bat
         cc, _, _ = find_msvc_winsdk(env_only=True)
     if cc is None:
