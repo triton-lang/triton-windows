@@ -31,7 +31,7 @@ jobs:
         shell: powershell
         run: |
           if (Test-Path -Path ~/.triton) { rm -r ~/.triton }
-          if (Test-Path -Path triton-windows/build) { rm -r triton-windows/build }
+          if (Test-Path -Path triton-windows/build) { rm -r -Force triton-windows/build }
           if (Test-Path -Path triton-windows/python/build) { rm -r triton-windows/python/build }
 
       - name: Create venv
