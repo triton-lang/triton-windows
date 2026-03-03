@@ -25,7 +25,7 @@ def get_cc():
     cc = os.environ.get("CC")
     if cc is None:
         # clang-cl from TheRock ROCm wheels (handles HIP C headers that mix C/C++ constructs)
-        cc = os.path.join(sysconfig.get_path("purelib"), "_rocm_sdk_core", "lib", "llvm", "bin", "clang-cl.exe")
+        cc = os.path.join(sysconfig.get_path("platlib"), "_rocm_sdk_core", "lib", "llvm", "bin", "clang-cl.exe")
         if not os.path.exists(cc):
             cc = None
     if cc is None:
