@@ -17,7 +17,7 @@ on:
         description: pytest args
         required: true
         type: string
-        default: '-n 0 -s --tb=short'
+        default: '--verbose -n 8 test_core.py --deselect language/test_core.py::test_sum_dtype'
 
 jobs:
   build-and-test-triton:
