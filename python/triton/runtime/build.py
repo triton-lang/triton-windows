@@ -27,17 +27,22 @@ def _find_compiler(language: str) -> str:
         cc = os.environ.get("CC")
         if cc is not None:
             return cc
+        # clang-cl from TheRock ROCm wheels (handles HIP C headers that mix C/C++ constructs)
+        cc = os.path.join(sysconfig.get_path("platlib"), "_rocm_sdk_core", "lib", "llvm", "bin", "clang-cl.exe")
+        if os.path.exists(cc):
+            return cc
         if os.name == "nt":
+            # Find and check MSVC and Windows SDK from environment variables set by Launch-VsDevShell.ps1 or VsDevCmd.bat
             cc, _, _ = find_msvc_winsdk(env_only=True)
             if cc is not None:
                 return cc
         # Bundled TinyCC
-        cc = os.path.join(sysconfig.get_paths()["platlib"], "triton", "runtime", "tcc", "tcc.exe")
+        cc = os.path.join(sysconfig.get_path("platlib"), "triton", "runtime", "tcc", "tcc.exe")
         if os.path.exists(cc):
             return cc
         cl = shutil.which("cl")
-        clang = shutil.which("clang")
         gcc = shutil.which("gcc")
+        clang = shutil.which("clang")
         cc = cl if cl is not None else gcc if gcc is not None else clang
         if cc is not None:
             return cc
@@ -48,13 +53,16 @@ def _find_compiler(language: str) -> str:
     cxx = os.environ.get("CXX")
     if cxx is not None:
         return cxx
+    cxx = os.path.join(sysconfig.get_path("platlib"), "_rocm_sdk_core", "lib", "llvm", "bin", "clang-cl.exe")
+    if os.path.exists(cxx):
+        return cxx
     if os.name == "nt":
         cxx, _, _ = find_msvc_winsdk(env_only=True)
         if cxx is not None:
             return cxx
     cl = shutil.which("cl")
-    clangxx = shutil.which("clang++")
     gxx = shutil.which("g++")
+    clangxx = shutil.which("clang++")
     cxx = cl if cl is not None else gxx if gxx is not None else clangxx
     if cxx is not None:
         return cxx
