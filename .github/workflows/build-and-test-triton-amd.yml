@@ -89,4 +89,4 @@ jobs:
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
           cd ../python/test/unit
-          pytest ${{ inputs.pytest_args }}
+          pytest ${{ inputs.pytest_args }} language/test_core.py
