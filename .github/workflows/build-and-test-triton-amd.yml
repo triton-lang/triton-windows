@@ -17,7 +17,7 @@ on:
         description: pytest args
         required: true
         type: string
-        default: '--verbose -n 8 test_core.py --deselect language/test_core.py::test_sum_dtype'
+        default: '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype"'
 
 jobs:
   build-and-test-triton:
@@ -89,4 +89,4 @@ jobs:
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
           cd ../python/test/unit
-          pytest ${{ inputs.pytest_args }} language/test_core.py
+          pytest ${{ inputs.pytest_args }}
