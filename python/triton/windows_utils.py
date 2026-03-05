@@ -403,3 +403,14 @@ def find_cuda() -> tuple[Optional[str], list[str], list[str]]:
 
     warnings.warn("Failed to find CUDA.")
     return None, [], []
+
+
+def normalize_path(path: str) -> str:
+    if os.name != "nt":
+        return path
+
+    if path.startswith("\\\\?\\"):
+        return path
+
+    path = os.path.abspath(path).replace("/", "\\")
+    return f"\\\\?\\{path}"
