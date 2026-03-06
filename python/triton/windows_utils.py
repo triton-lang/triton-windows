@@ -426,3 +426,18 @@ def find_hip() -> tuple[Optional[str], list[str], list[str]]:
 
     warnings.warn("Failed to find ROCm/HIP.")
     return None, [], []
+
+
+def normalize_path(path: str) -> str:
+    if os.name != "nt":
+        return path
+
+    if path.startswith("\\\\?\\") or path.startswith("\\\\.\\"):
+        path = path[4:]
+
+    elif path.startswith("\\\\"):
+        return path
+
+    path = os.path.abspath(path).replace("/", "\\")
+    path = re.sub(r"^([A-Za-z]):", r"\1$", path)
+    return f"\\\\localhost\\{path}"
