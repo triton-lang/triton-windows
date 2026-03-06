@@ -403,8 +403,8 @@ def find_cuda() -> tuple[Optional[str], list[str], list[str]]:
 
     warnings.warn("Failed to find CUDA.")
     return None, [], []
-  
- 
+
+
 @functools.lru_cache
 def find_hip() -> tuple[Optional[str], list[str], list[str]]:
     """Find HIP SDK paths (bin, include dirs, lib dirs) from ROCm SDK wheels."""
@@ -438,5 +438,6 @@ def normalize_path(path: str) -> str:
     elif path.startswith("\\\\"):
         return path
 
-    path = os.path.abspath(path).replace("/", "\\").replace(":", "$")
+    path = os.path.abspath(path).replace("/", "\\")
+    path = re.sub(r"^([A-Za-z]):", r"\1$", path)
     return f"\\\\localhost\\{path}"
