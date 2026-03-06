@@ -14,6 +14,7 @@ from pathlib import Path
 
 from types import ModuleType
 
+from triton.windows_utils import normalize_path
 from .cache import get_cache_manager
 from .. import knobs
 
@@ -200,8 +201,8 @@ def _get_file_extension(language):
 
 
 def _load_module_from_path(name: str, path: str) -> ModuleType:
-    # Loading module with relative path may cause error
-    path = os.path.abspath(path)
+    # Loading module with relative path may cause error. `normalize_path` normalizes to absolute path.
+    path = normalize_path(path)
     spec = importlib.util.spec_from_file_location(name, path)
     if not spec or not spec.loader:
         raise RuntimeError(f"Failed to load newly compiled {name} from {path}")
@@ -242,6 +243,7 @@ def _compile_so(src: bytes, src_path: str, name: str, library_dirs: list[str] | 
             log.warning(f"Triton cache error: compiled module {name}.so could not be loaded")
 
     with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = normalize_path(tmpdir)
         so = _build(name, src_path, tmpdir, library_dirs or [], include_dirs or [], libraries or [], ccflags or [],
                     language=language)
         with open(so, "rb") as f:
