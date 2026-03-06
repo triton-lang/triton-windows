@@ -46,7 +46,11 @@ class HipblasLtInstance {
       const hipblasLtMatrixLayout_t, void *, const hipblasLtMatrixLayout_t,
       const hipblasLtMatmulAlgo_t *, void *, size_t, hipStream_t);
 
+#ifdef _WIN32
+  static constexpr const char *name = "libhipblaslt.dll";
+#else
   static constexpr const char *name = "libhipblaslt.so";
+#endif
 
   hipblasLtCreate_t hipblasLtCreate;
   hipblasLtDestroy_t hipblasLtDestroy;
