@@ -9,6 +9,7 @@ import functools
 import sysconfig
 
 from triton import __version__, knobs
+from triton.windows_utils import normalize_path
 
 
 class CacheManager(ABC):
@@ -41,16 +42,19 @@ class FileCacheManager(CacheManager):
         if dump:
             self.cache_dir = knobs.cache.dump_dir
             self.cache_dir = os.path.join(self.cache_dir, self.key)
+            self.cache_dir = normalize_path(self.cache_dir)
             self.lock_path = os.path.join(self.cache_dir, "lock")
             os.makedirs(self.cache_dir, exist_ok=True)
         elif override:
             self.cache_dir = knobs.cache.override_dir
             self.cache_dir = os.path.join(self.cache_dir, self.key)
+            self.cache_dir = normalize_path(self.cache_dir)
         else:
             # create cache directory if it doesn't exist
             self.cache_dir = knobs.cache.dir
             if self.cache_dir:
                 self.cache_dir = os.path.join(self.cache_dir, self.key)
+                self.cache_dir = normalize_path(self.cache_dir)
                 self.lock_path = os.path.join(self.cache_dir, "lock")
                 os.makedirs(self.cache_dir, exist_ok=True)
             else:
@@ -104,12 +108,11 @@ class FileCacheManager(CacheManager):
         assert self.lock_path is not None
         filepath = self._make_path(filename)
         # Random ID to avoid any collisions
-        # Shortened to avoid exceeding Windows' path length limit of 260 chars
-        rnd_id = str(uuid.uuid4())[:8]
+        rnd_id = str(uuid.uuid4())
         # we use the PID in case a bunch of these around so we can see what PID made it
-        # pid = os.getpid()
+        pid = os.getpid()
         # use temp dir to be robust against program interruptions
-        temp_dir = os.path.join(self.cache_dir, f"tmp.{rnd_id}")
+        temp_dir = os.path.join(self.cache_dir, f"tmp.pid_{pid}_{rnd_id}")
         os.makedirs(temp_dir, exist_ok=True)
         temp_path = os.path.join(temp_dir, filename)
 
