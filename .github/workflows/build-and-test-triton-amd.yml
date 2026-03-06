@@ -1,6 +1,12 @@
 name: Build and Test Triton (AMD)
 
 on:
+  push:
+    branches:
+      - main-windows
+  pull_request:
+    branches:
+      - main-windows
   workflow_dispatch:
     inputs:
       git_tag:
@@ -24,6 +30,8 @@ jobs:
     runs-on: triton-windows1
     env:
       PIP_CACHE_DIR: E:\pip-cache
+      PYTHON_MINOR: ${{ inputs.python_minor || '12' }}
+      PYTEST_ARGS: ${{ inputs.pytest_args || '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype"' }}
     steps:
       - uses: astral-sh/setup-uv@v5
 
@@ -34,11 +42,18 @@ jobs:
           if (Test-Path -Path triton-windows/build) { rm -r -Force triton-windows/build }
           if (Test-Path -Path triton-windows/python/build) { rm -r triton-windows/python/build }
 
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_tag || '' }}
+          path: triton-windows
+          fetch-depth: 1
+
       - name: Create venv
         shell: powershell
         run: |
-          uv venv .venv-cp3${{ inputs.python_minor }} --python 3.${{ inputs.python_minor }}.10 --clear
-          .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
+          uv venv .venv-cp3${{ env.PYTHON_MINOR }} --python 3.${{ env.PYTHON_MINOR }}.10 --clear
+          .venv-cp3${{ env.PYTHON_MINOR }}\Scripts\activate.ps1
           python -m ensurepip --upgrade
           python -m pip install --upgrade pip
 
@@ -46,27 +61,14 @@ jobs:
         shell: powershell
         run: |
           & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
-          .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
+          .venv-cp3${{ env.PYTHON_MINOR }}\Scripts\activate.ps1
           python -m pip install --upgrade cibuildwheel
 
-          git config --global core.autocrlf false
-          if (Test-Path -Path triton-windows)
-          {
-            cd triton-windows
-            git add .
-            git reset --hard HEAD
-            git fetch origin ${{ inputs.git_tag }} --depth 1
-            git checkout FETCH_HEAD -B ${{ inputs.git_tag }}
-          }
-          else
-          {
-            git clone --branch ${{ inputs.git_tag }} --depth 1 https://github.com/triton-lang/triton-windows.git
-            cd triton-windows
-          }
+          cd triton-windows
           git rev-parse HEAD
 
           $Env:TRITON_BUILD_PROTON = "0"
-          $Env:CIBW_BUILD = "{cp3${{ inputs.python_minor }}-win_amd64,}"
+          $Env:CIBW_BUILD = "{cp3${{ env.PYTHON_MINOR }}-win_amd64,}"
           $Env:CIBW_BUILD_VERBOSITY = "1"
           $Env:CIBW_ENABLE = "cpython-freethreading"
           if (Test-Path -Path wheelhouse) { rm wheelhouse/* }
@@ -83,10 +85,10 @@ jobs:
         shell: powershell
         run: |
           & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
-          .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
+          .venv-cp3${{ env.PYTHON_MINOR }}\Scripts\activate.ps1
           python -m pip install --upgrade numpy pytest-xdist pytest-timeout scipy expecttest
           python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ torch "rocm[libraries,devel]"
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
           cd ../python/test/unit
-          pytest ${{ inputs.pytest_args }}
+          pytest ${{ env.PYTEST_ARGS }}
