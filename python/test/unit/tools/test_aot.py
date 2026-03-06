@@ -10,8 +10,64 @@ import numpy as np
 
 import triton
 from triton.backends.compiler import GPUTarget
-from triton.backends.nvidia.driver import include_dirs, library_dirs
 from triton._internal_testing import is_cuda, is_hip
+
+if is_cuda():
+    from triton.backends.nvidia.driver import include_dirs, library_dirs
+
+    def library_names():
+        return ["cuda"]
+
+elif is_hip():
+    from triton.backends.amd.driver import include_dirs
+
+    if os.name == "nt":
+        from triton.windows_utils import find_hip
+
+    def library_dirs():
+        if os.name == "nt":
+            _, _, lib_dirs = find_hip()
+            return lib_dirs
+        from triton.backends.amd.driver import _get_path_to_hip_runtime_dylib
+        return [os.path.dirname(_get_path_to_hip_runtime_dylib())]
+
+    def library_names():
+        return ["amdhip64"]
+
+
+def _find_cc():
+    """Find a C compiler. On HIP/Windows, uses clang-cl from the ROCm SDK
+    because MSVC's C mode cannot compile HIP headers with C++ constructs."""
+    if os.name == "nt" and is_hip():
+        _, _, lib_dirs = find_hip()
+        if lib_dirs:
+            clang_cl = os.path.join(os.path.dirname(lib_dirs[0]), "lib", "llvm", "bin", "clang-cl.exe")
+            if os.path.exists(clang_cl):
+                return clang_cl
+    return "cl"
+
+
+def _find_lib():
+    """Find a librarian tool. On HIP/Windows, uses llvm-lib from the ROCm SDK."""
+    if os.name == "nt" and is_hip():
+        _, _, lib_dirs = find_hip()
+        if lib_dirs:
+            llvm_lib = os.path.join(os.path.dirname(lib_dirs[0]), "lib", "llvm", "bin", "llvm-lib.exe")
+            if os.path.exists(llvm_lib):
+                return llvm_lib
+    return "lib"
+
+
+def _make_run_env(tmp_dir):
+    """Create environment for running AOT test executables."""
+    env = os.environ.copy()
+    if os.name == "nt":
+        extra_dirs = [tmp_dir] + library_dirs()
+        env["PATH"] = ";".join(extra_dirs) + ";" + env.get("PATH", "")
+    else:
+        env["LD_LIBRARY_PATH"] = tmp_dir
+    return env
+
 
 kernel_utils_src = """
 import triton
@@ -125,15 +181,15 @@ def gen_kernel_library(dir, libname):
         libname = libname.lstrip("lib")
         libname = libname.replace(".so", ".lib")
 
+        cc = _find_cc()
         c_files = glob.glob(os.path.join(dir, "*.c"))
-        command = ["cl", *c_files, "/nologo", "/utf-8", "/c"]
+        command = [cc, *c_files, "/nologo", "/utf-8", "/c"]
         command += [f"/I{x}" for x in include_dirs if x is not None]
         subprocess.run(command, check=True, cwd=dir)
 
+        lib_tool = _find_lib()
         obj_files = glob.glob(os.path.join(dir, "*.obj"))
-        command = ["lib", *obj_files, "/nologo"]
-        command += [f"/LIBPATH:{x}" for x in library_dirs()]
-        command += ["cuda.lib", f"/OUT:{libname}"]
+        command = [lib_tool, *obj_files, "/nologo", f"/OUT:{libname}"]
         subprocess.run(command, check=True, cwd=dir)
     else:
         c_files = glob.glob(os.path.join(dir, "*.c"))
@@ -207,11 +263,13 @@ int main(int argc, char **argv) {{
         file.write(src)
 
     if os.name == "nt":
-        command = ["cl", "test.c", "/nologo", "/utf-8"]
+        cc = _find_cc()
+        command = [cc, "test.c", "/nologo", "/utf-8"]
         command += [f"/I{x}" for x in include_dirs if x is not None]
         command += ["/link"]
         command += [f"/LIBPATH:{x}" for x in library_dirs()]
-        command += ["cuda.lib", f"/LIBPATH:{dir}", "kernel.lib", f"/OUT:{exe}.exe"]
+        command += [f"{x}.lib" for x in library_names()]
+        command += [f"/LIBPATH:{dir}", "kernel.lib", f"/OUT:{exe}.exe"]
     else:
         command = ["gcc", "test.c"]
         command += [f"-I{x}" for x in include_dirs if x is not None]
@@ -353,8 +411,7 @@ def test_compile_link_matmul_no_specialization():
         a, b, a_path, b_path, c_path = generate_matmul_test_data(tmp_dir, M, N, K)
 
         # run test case
-        env = os.environ.copy()
-        env["LD_LIBRARY_PATH"] = tmp_dir
+        env = _make_run_env(tmp_dir)
         if os.name == "nt":
             exe = "test.exe"
         else:
@@ -392,8 +449,7 @@ def test_compile_link_matmul():
         a, b, a_path, b_path, c_path = generate_matmul_test_data(tmp_dir, M, N, K)
 
         # run test case
-        env = os.environ.copy()
-        env["LD_LIBRARY_PATH"] = tmp_dir
+        env = _make_run_env(tmp_dir)
         if os.name == "nt":
             exe = "test.exe"
         else:
@@ -432,8 +488,7 @@ def test_launcher_has_no_available_kernel():
         a, b, a_path, b_path, c_path = generate_matmul_test_data(tmp_dir, M, N, K)
 
         # run test case
-        env = os.environ.copy()
-        env["LD_LIBRARY_PATH"] = tmp_dir
+        env = _make_run_env(tmp_dir)
         if os.name == "nt":
             exe = "test.exe"
         else:
@@ -489,8 +544,7 @@ def test_compile_link_autotune_matmul():
             test_name = f"test_{algo_id}"
             gen_test_bin(tmp_dir, M, N, K, exe=test_name, algo_id=algo_id)
 
-            env = os.environ.copy()
-            env["LD_LIBRARY_PATH"] = tmp_dir
+            env = _make_run_env(tmp_dir)
             if os.name == "nt":
                 exe = f"{test_name}.exe"
             else:
