@@ -26,6 +26,9 @@ on:
         default: '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype"'
 
 jobs:
+  pre-commit:
+    uses: ./.github/workflows/pre-commit.yml
+
   build-and-test-triton:
     runs-on: triton-windows1
     env:
