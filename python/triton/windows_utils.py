@@ -432,8 +432,11 @@ def normalize_path(path: str) -> str:
     if os.name != "nt":
         return path
 
-    if path.startswith("\\\\?\\"):
+    if path.startswith("\\\\?\\") or path.startswith("\\\\.\\"):
+        path = path[4:]
+
+    elif path.startswith("\\\\"):
         return path
 
-    path = os.path.abspath(path).replace("/", "\\")
-    return f"\\\\?\\{path}"
+    path = os.path.abspath(path).replace("/", "\\").replace(":", "$")
+    return f"\\\\localhost\\{path}"
