@@ -403,3 +403,26 @@ def find_cuda() -> tuple[Optional[str], list[str], list[str]]:
 
     warnings.warn("Failed to find CUDA.")
     return None, [], []
+
+
+@functools.lru_cache
+def find_hip() -> tuple[Optional[str], list[str], list[str]]:
+    """Find HIP SDK paths (bin, include dirs, lib dirs) from ROCm SDK wheels."""
+    try:
+        import rocm_sdk
+        paths = rocm_sdk.find_libraries("amdhip64")
+        if paths:
+            bin_dir = str(paths[0].parent)
+            root = str(paths[0].parent.parent)
+            inc_dir = os.path.join(root, "include")
+            lib_dir = os.path.join(root, "lib")
+            inc_dirs = [inc_dir] if os.path.isdir(inc_dir) else []
+            lib_dirs = [bin_dir]
+            if os.path.isdir(lib_dir):
+                lib_dirs.append(lib_dir)
+            return bin_dir, inc_dirs, lib_dirs
+    except (ImportError, ModuleNotFoundError):
+        pass
+
+    warnings.warn("Failed to find ROCm/HIP.")
+    return None, [], []
