@@ -1,3 +1,4 @@
+import ctypes
 import functools
 import os
 import re
@@ -429,15 +430,51 @@ def find_hip() -> tuple[Optional[str], list[str], list[str]]:
 
 
 def normalize_path(path: str) -> str:
+    r"""Normalize to absolute path with UNC prefix \\?\ so it does not suffer from 260-char length limit."""
     if os.name != "nt":
         return path
 
-    if path.startswith("\\\\?\\") or path.startswith("\\\\.\\"):
-        path = path[4:]
+    path = os.path.abspath(path).replace("/", "\\")
 
-    elif path.startswith("\\\\"):
+    if path.startswith("\\\\?\\"):
         return path
 
-    path = os.path.abspath(path).replace("/", "\\")
-    path = re.sub(r"^([A-Za-z]):", r"\1$", path)
-    return f"\\\\localhost\\{path}"
+    if path.startswith("\\\\.\\"):
+        # Local device path such as \\.\C:\path\to\file.c
+        # Change the prefix from \\.\ to \\?\
+        return "\\\\?\\" + path[4:]
+
+    if path.startswith("\\\\"):
+        # Standard UNC path such as \\localhost\C$\path\to\file.c or \\ServerName\ShareName\path\to\file.c
+        # Change the prefix from \\ to \\?\UNC\
+        return "\\\\?\\UNC\\" + path[2:]
+
+    # Now the path must be a non-UNC path
+    return "\\\\?\\" + path
+
+
+kernel32 = None
+if os.name == "nt":
+    from ctypes import wintypes
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.GetShortPathNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+    kernel32.GetShortPathNameW.restype = wintypes.DWORD
+
+
+def get_8dot3_short_path(path: str) -> str:
+    if os.name != "nt":
+        return path
+
+    path = normalize_path(path)
+
+    req_size = kernel32.GetShortPathNameW(path, None, 0)
+    if req_size > 0:
+        buf = ctypes.create_unicode_buffer(req_size)
+        if kernel32.GetShortPathNameW(path, buf, req_size) > 0:
+            path = buf.value
+
+    if path.startswith("\\\\?\\UNC\\"):
+        return "\\\\" + path[8:]
+    if path.startswith("\\\\?\\"):
+        return path[4:]
+    return path
