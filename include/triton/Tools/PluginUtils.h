@@ -14,10 +14,8 @@ enum TritonPluginResult {
 };
 };
 #ifdef _WIN32
-#define TRITON_PLUGIN_API                                                      \
-  extern "C" __declspec(dllexport) TritonPluginResult
-#define TRITON_PLUGIN_API_TYPE(_TYPE)                                          \
-  extern "C" __declspec(dllexport) _TYPE
+#define TRITON_PLUGIN_API extern "C" __declspec(dllexport) TritonPluginResult
+#define TRITON_PLUGIN_API_TYPE(_TYPE) extern "C" __declspec(dllexport) _TYPE
 #else
 #define TRITON_PLUGIN_API                                                      \
   extern "C" __attribute__((visibility("default"))) TritonPluginResult
