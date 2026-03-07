@@ -17,8 +17,7 @@
 #include <Python.h>
 
 typedef struct {
-  PyObject_HEAD
-  _Alignas(alignof(CUtensorMap)) CUtensorMap tensorMap;
+  PyObject_HEAD _Alignas(alignof(CUtensorMap)) CUtensorMap tensorMap;
 } PyCUtensorMapObject;
 
 typedef enum { ARG_CONSTEXPR = 0, ARG_KERNEL = 1, ARG_TUPLE = 2 } ArgType;
