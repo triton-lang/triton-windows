@@ -3,7 +3,7 @@
 # # @global-owner1 and @global-owner2 will be requested for
 # # review when someone opens a pull request.
 # *       @ptillet
-# 
+#
 # # --------
 # # Analyses
 # # --------
@@ -22,7 +22,7 @@
 # # Utilities
 # include/triton/Analysis/Utility.h @Jokeren
 # lib/Analysis/Utility.cpp @Jokeren
-# 
+#
 # # ----------
 # # Dialects
 # # ----------
@@ -34,20 +34,20 @@
 # lib/Dialect/TritonGPU/Transforms/Coalesce.cpp @ptillet
 # # Layout simplification pass
 # lib/Dialect/TritonGPU/Transforms/Combine.cpp @ptillet
-# 
+#
 # # -----------
 # # Conversions
 # # -----------
 # # TritonToTritonGPU
 # include/triton/Conversion/TritonToTritonGPU/ @ptillet
 # lib/Dialect/TritonGPU/Transforms/TritonGPUConversion.cpp @ptillet
-# 
+#
 # # -----------
 # # third_party
 # # -----------
 # third_party/amd/ @antiagainst @zhanglx13
 # third_party/proton/ @Jokeren @crobeck @fywkevin
-# 
+#
 # # -----------
 # # gluon
 # # -----------
@@ -57,7 +57,7 @@
 # test/Gluon @peterbell10
 # include/triton/Dialect/Gluon @peterbell10
 # lib/Dialect/Gluon @peterbell10
-# 
+#
 # # -----------
 # # Linear Layouts
 # # -----------
