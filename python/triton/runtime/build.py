@@ -13,7 +13,7 @@ import re
 
 from types import ModuleType
 
-from triton.windows_utils import normalize_path
+from triton.windows_utils import get_8dot3_short_path, normalize_path
 from .cache import get_cache_manager
 from .. import knobs
 
@@ -100,9 +100,15 @@ def _build(name: str, src: str, srcdir: str, library_dirs: list[str], include_di
            ccflags: list[str]) -> str:
     if impl := knobs.build.impl:
         return impl(name, src, srcdir, library_dirs, include_dirs, libraries)
+
+    cc = get_cc()
+    if is_msvc(cc):
+        # MSVC does not support UNC path with \\?\ prefix. We convert it to 8.3 short path.
+        src = get_8dot3_short_path(src)
+        srcdir = get_8dot3_short_path(srcdir)
+
     suffix = sysconfig.get_config_var('EXT_SUFFIX')
     so = os.path.join(srcdir, '{name}{suffix}'.format(name=name, suffix=suffix))
-    cc = get_cc()
     scheme = sysconfig.get_default_scheme()
     # 'posix_local' is a custom scheme on Debian. However, starting Python 3.10, the default install
     # path changes to include 'local'. This change is required to use triton with system-wide python.
