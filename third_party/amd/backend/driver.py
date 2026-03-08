@@ -101,7 +101,9 @@ def _get_path_to_hip_runtime_dylib():
 
     # If we are told explicitly what HIP runtime dynamic library to use, obey that.
     if env_libhip_path := knobs.amd.libhip_path:
-        if Path(env_libhip_path).name.startswith(lib_name) and os.path.isfile(env_libhip_path):
+        lib_filename = Path(env_libhip_path).name
+        name_matches = "amdhip64" in lib_filename if _is_windows() else lib_filename.startswith(lib_name)
+        if name_matches and os.path.isfile(env_libhip_path):
             return env_libhip_path
         raise RuntimeError(f"TRITON_LIBHIP_PATH '{env_libhip_path}' does not point to a valid {lib_name}")
 
