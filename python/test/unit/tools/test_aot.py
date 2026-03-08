@@ -10,6 +10,7 @@ import numpy as np
 
 import triton
 from triton.backends.compiler import GPUTarget
+from triton.runtime.build import is_clang_cl, is_msvc, is_tcc, get_cc
 from triton._internal_testing import is_cuda, is_hip
 
 if is_cuda():
@@ -33,18 +34,6 @@ elif is_hip():
 
     def library_names():
         return ["amdhip64"]
-
-
-def _find_cc():
-    """Find a C compiler. On HIP/Windows, uses clang-cl from the ROCm SDK
-    because MSVC's C mode cannot compile HIP headers with C++ constructs."""
-    if os.name == "nt" and is_hip():
-        _, _, lib_dirs = find_hip()
-        if lib_dirs:
-            clang_cl = os.path.join(os.path.dirname(lib_dirs[0]), "lib", "llvm", "bin", "clang-cl.exe")
-            if os.path.exists(clang_cl):
-                return clang_cl
-    return "cl"
 
 
 def _find_lib():
@@ -192,11 +181,12 @@ static void read_csv_to_buffer(char *filename, int16_t *buffer, int size) {
 
 
 def gen_kernel_library(dir, libname):
-    if os.name == "nt":
-        libname = libname.lstrip("lib")
+    cc = get_cc()
+    if is_msvc(cc) or is_clang_cl(cc):
+        if libname.startswith("lib"):
+            libname = libname[3:]
         libname = libname.replace(".so", ".lib")
 
-        cc = _find_cc()
         c_files = glob.glob(os.path.join(dir, "*.c"))
         command = [cc, *c_files, "/nologo", "/utf-8", "/c"]
         command += [f"/I{x}" for x in include_dirs if x is not None]
@@ -205,15 +195,28 @@ def gen_kernel_library(dir, libname):
         lib_tool = _find_lib()
         obj_files = glob.glob(os.path.join(dir, "*.obj"))
         command = [lib_tool, *obj_files, "/nologo", f"/OUT:{libname}"]
+        # library_dirs are handled in _make_run_env
         subprocess.run(command, check=True, cwd=dir)
-    else:
+    elif is_tcc(cc):
+        libname = libname.replace(".so", ".a")
+
         c_files = glob.glob(os.path.join(dir, "*.c"))
-        command = ["gcc", *c_files, "-c", "-fPIC"]
+        command = [cc, *c_files, "-c", "-fPIC", "-D_Py_USE_GCC_BUILTIN_ATOMICS"]
         command += [f"-I{x}" for x in include_dirs if x is not None]
         subprocess.run(command, check=True, cwd=dir)
 
         o_files = glob.glob(os.path.join(dir, "*.o"))
-        command = ["gcc", *o_files, "-shared", "-o", libname]
+        command = [cc, "-ar", "rcs", libname, *o_files]
+        # library_dirs are handled in _make_run_env
+        subprocess.run(command, check=True, cwd=dir)
+    else:
+        c_files = glob.glob(os.path.join(dir, "*.c"))
+        command = [cc, *c_files, "-c", "-fPIC"]
+        command += [f"-I{x}" for x in include_dirs if x is not None]
+        subprocess.run(command, check=True, cwd=dir)
+
+        o_files = glob.glob(os.path.join(dir, "*.o"))
+        command = [cc, *o_files, "-shared", "-o", libname]
         command += [f"-L{x}" for x in library_dirs()]
         subprocess.run(command, check=True, cwd=dir)
 
@@ -334,15 +337,20 @@ int main(int argc, char **argv) {{
         file.write(src)
 
     if os.name == "nt":
-        cc = _find_cc()
+        exe += ".exe"
+
+    cc = get_cc()
+    if is_msvc(cc) or is_clang_cl(cc):
         command = [cc, "test.c", "/nologo", "/utf-8"]
         command += [f"/I{x}" for x in include_dirs if x is not None]
         command += ["/link"]
         command += [f"/LIBPATH:{x}" for x in library_dirs()]
         command += [f"{x}.lib" for x in library_names()]
-        command += [f"/LIBPATH:{dir}", "kernel.lib", f"/OUT:{exe}.exe"]
+        command += [f"/LIBPATH:{dir}", "kernel.lib", f"/OUT:{exe}"]
     else:
-        command = ["gcc", "test.c"]
+        command = [cc, "test.c"]
+        if is_tcc(cc):
+            command += ["-D_Py_USE_GCC_BUILTIN_ATOMICS"]
         command += [f"-I{x}" for x in include_dirs if x is not None]
         command += [f"-L{x}" for x in library_dirs()]
         command += [f"-l{x}" for x in library_names()]
@@ -561,9 +569,14 @@ def test_launcher_has_no_available_kernel():
         )
 
         # It should fail since the launcher requires all the strides be 1 while they are not.
-        if os.name == "nt":
+        cc = get_cc()
+        if is_msvc(cc) or is_clang_cl(cc):
             assert result.returncode == 0xc0000409
+        elif os.name == "nt":
+            # MSVCRT abort
+            assert result.returncode == 3
         else:
+            # Linux abort
             assert result.returncode == -6
         assert "kernel launch failed" in result.stderr
 
