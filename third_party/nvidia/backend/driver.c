@@ -15,8 +15,7 @@
 #include <Python.h>
 
 typedef struct {
-  PyObject_HEAD
-  _Alignas(128) CUtensorMap tensorMap;
+  PyObject_HEAD _Alignas(128) CUtensorMap tensorMap;
 } PyCUtensorMapObject;
 
 // Raises a Python exception and returns false if code is not CUDA_SUCCESS.
