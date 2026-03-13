@@ -8,6 +8,7 @@
 #include <stdlib.h>
 
 #ifdef _WIN32
+#include <malloc.h>
 #include <windows.h>
 // Windows compatibility layer for dlopen/dlsym/dlclose/dlerror
 #define RTLD_NOW 0
