@@ -17,10 +17,15 @@
 static char dlerror_buf[512];
 static inline void *dlopen(const char *filename, int flags) {
   (void)flags;
-  HMODULE h = LoadLibraryA(filename);
+  // Reuse HIP DLL if already loaded to share GPU memory context
+  const char *basename = strrchr(filename, '\\') + 1;
+  HMODULE h = GetModuleHandleA(basename);
   if (!h) {
-    snprintf(dlerror_buf, sizeof(dlerror_buf),
-             "LoadLibrary failed with error %lu", GetLastError());
+    h = LoadLibraryA(filename);
+    if (!h) {
+      snprintf(dlerror_buf, sizeof(dlerror_buf),
+               "LoadLibrary failed with error %lu", GetLastError());
+    }
   }
   return (void *)h;
 }
