@@ -36,7 +36,7 @@ jobs:
       PYTHON_MINOR: ${{ inputs.python_minor || '12' }}
       PYTEST_ARGS: ${{ inputs.pytest_args || '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype"' }}
     steps:
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
 
       - name: Clean caches
         shell: powershell
@@ -46,7 +46,7 @@ jobs:
           if (Test-Path -Path triton-windows/python/build) { rm -r triton-windows/python/build }
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.git_tag || '' }}
           path: triton-windows
