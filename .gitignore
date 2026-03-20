@@ -105,6 +105,7 @@ docs/sg_execution_times.rst
 AGENTS.override.md
 
 .tmp
+/dist/
 /main.*
 /*.mlir
-/wheelhouse
+/wheelhouse/
