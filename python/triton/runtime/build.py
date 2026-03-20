@@ -13,12 +13,14 @@ import re
 
 from types import ModuleType
 
-from triton.windows_utils import get_8dot3_short_path, normalize_path
 from .cache import get_cache_manager
 from .. import knobs
 
 if os.name == "nt":
-    from triton.windows_utils import find_msvc_winsdk, find_python
+    from triton.windows_utils import find_msvc_winsdk, find_python, get_8dot3_short_path, normalize_path
+else:
+    normalize_path = os.path.abspath
+    get_8dot3_short_path = os.path.abspath
 
 
 @functools.lru_cache
