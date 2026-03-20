@@ -5,7 +5,6 @@ import triton
 import ctypes
 import sys
 from triton import knobs
-from triton._C.libtriton.gsan_testing import PER_DEVICE_STATE_STRIDE_BYTES as GSAN_PER_DEVICE_STATE_STRIDE
 from triton._instrumentation import is_enabled
 from triton.runtime.build import compile_module_from_file
 from triton.runtime import _allocation
@@ -352,6 +351,7 @@ class CudaLauncher(object):
 
             import triton.experimental.gsan._allocator as gsan_allocator
             import triton.experimental.gsan._stream_sync as gsan_stream_sync
+            from triton._C.libtriton.gsan_testing import PER_DEVICE_STATE_STRIDE_BYTES as GSAN_PER_DEVICE_STATE_STRIDE
             device = triton.runtime.driver.active.get_current_device()
             device_rank = gsan_allocator.get_device_rank(device)
             gsan_state_ptr = gsan_allocator.get_global_state_pointer() + device_rank * GSAN_PER_DEVICE_STATE_STRIDE

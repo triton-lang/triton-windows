@@ -22,7 +22,7 @@ option(TRITON_BUILD_BINARY "Build C++ Triton binaries" ON)
 option(TRITON_BUILD_PYTHON_MODULE "Build Python Triton bindings" OFF)
 option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" ON)
 option(TRITON_BUILD_NVIDIA_GSAN_RUNTIME
-       "Build the CUDA/NVPTX GSan device runtime for the NVIDIA backend" ON)
+       "Build the CUDA/NVPTX GSan device runtime for the NVIDIA backend" OFF)
 option(TRITON_STABLE_ABI "Build with Python Stable ABI (abi3) for Python 3.12+" OFF)
 option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" ON)
 option(TRITON_BUILD_WITH_CCACHE "Build with ccache (if available)" ON)
@@ -430,15 +430,25 @@ if(TRITON_BUILD_PYTHON_MODULE)
 
   set(TRITON_BACKENDS_TUPLE "(${TRITON_BACKENDS_TUPLE})")
   add_compile_definitions(TRITON_BACKENDS_TUPLE=${TRITON_BACKENDS_TUPLE})
-  add_library(triton SHARED ${PYTHON_SRC_PATH}/main.cc
+  set(TRITON_PYTHON_BINDING_SRCS
+                  ${PYTHON_SRC_PATH}/main.cc
                   ${PYTHON_SRC_PATH}/ir.cc
                   ${PYTHON_SRC_PATH}/gluon_ir.cc
-                  ${CMAKE_CURRENT_SOURCE_DIR}/python/triton/experimental/gsan/src/gsan_testing.cc
                   ${PYTHON_SRC_PATH}/linear_layout.cc
                   ${PYTHON_SRC_PATH}/passes.cc
                   ${PYTHON_SRC_PATH}/interpreter.cc
                   ${PYTHON_SRC_PATH}/llvm.cc
                   ${PYTHON_SRC_PATH}/specialize.cc)
+  if(TRITON_BUILD_NVIDIA_GSAN_RUNTIME)
+    list(APPEND TRITON_PYTHON_BINDING_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/python/triton/experimental/gsan/src/gsan_testing.cc)
+  endif()
+  add_library(triton SHARED ${TRITON_PYTHON_BINDING_SRCS})
+
+  if(TRITON_BUILD_NVIDIA_GSAN_RUNTIME)
+    target_compile_definitions(triton PRIVATE TRITON_BUILD_NVIDIA_GSAN_RUNTIME=1)
+  else()
+    target_compile_definitions(triton PRIVATE TRITON_BUILD_NVIDIA_GSAN_RUNTIME=0)
+  endif()
 
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(triton PRIVATE -Wno-array-bounds)
