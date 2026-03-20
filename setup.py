@@ -339,6 +339,7 @@ class CMakeBuild(build_ext):
         passthrough_args = [
             "TRITON_BUILD_BINARY",
             "TRITON_BUILD_PROTON",
+            "TRITON_BUILD_GSAN",
             "TRITON_BUILD_WITH_CCACHE",
             "TRITON_PARALLEL_LINK_JOBS",
             "TRITON_OFFLINE_BUILD",
