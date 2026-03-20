@@ -10,7 +10,7 @@ import numpy as np
 
 import triton
 from triton.backends.compiler import GPUTarget
-from triton.runtime.build import is_clang_cl, is_msvc, is_tcc, get_cc
+from triton.runtime.build import is_clang_cl, is_msvc, is_tcc, _find_compiler
 from triton._internal_testing import is_cuda, is_hip
 
 if is_cuda():
@@ -181,7 +181,7 @@ static void read_csv_to_buffer(char *filename, int16_t *buffer, int size) {
 
 
 def gen_kernel_library(dir, libname):
-    cc = get_cc()
+    cc = _find_compiler("c")
     if is_msvc(cc) or is_clang_cl(cc):
         if libname.startswith("lib"):
             libname = libname[3:]
@@ -339,7 +339,7 @@ int main(int argc, char **argv) {{
     if os.name == "nt":
         exe += ".exe"
 
-    cc = get_cc()
+    cc = _find_compiler("c")
     if is_msvc(cc) or is_clang_cl(cc):
         command = [cc, "test.c", "/nologo", "/utf-8"]
         command += [f"/I{x}" for x in include_dirs if x is not None]
@@ -569,7 +569,7 @@ def test_launcher_has_no_available_kernel():
         )
 
         # It should fail since the launcher requires all the strides be 1 while they are not.
-        cc = get_cc()
+        cc = _find_compiler("c")
         if is_msvc(cc) or is_clang_cl(cc):
             assert result.returncode == 0xc0000409
         elif os.name == "nt":
