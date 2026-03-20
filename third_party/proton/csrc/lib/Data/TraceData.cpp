@@ -1122,4 +1122,9 @@ TraceData::TraceData(const std::string &path, ContextSource *contextSource)
 
 TraceData::~TraceData() {}
 
+std::unique_ptr<Data> makeTraceData(const std::string &path,
+                                    ContextSource *contextSource) {
+  return std::make_unique<TraceData>(path, contextSource);
+}
+
 } // namespace proton
