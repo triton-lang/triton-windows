@@ -47,8 +47,10 @@ void init_triton_interpreter(nanobind::module_ &m);
 void init_triton_passes(nanobind::module_ &m);
 void init_triton_stacktrace_hook(nanobind::module_ &m);
 void init_gluon_ir(nanobind::module_ &m);
+#if TRITON_BUILD_NVIDIA_GSAN_RUNTIME
 void init_gsan_testing(nanobind::module_ &m);
 void init_gsan_profile(nanobind::module_ &m);
+#endif
 void init_linear_layout(nanobind::module_ &m);
 void init_native_specialize(nanobind::module_ &m);
 FOR_EACH_P(DECLARE_BACKEND, TRITON_BACKENDS_TUPLE)
@@ -66,10 +68,12 @@ NB_MODULE(libtriton, m) {
   init_triton_interpreter(interpreter_m);
   auto llvm_m = m.def_submodule("llvm");
   init_triton_llvm(llvm_m);
+#if TRITON_BUILD_NVIDIA_GSAN_RUNTIME
   auto gsan_m = m.def_submodule("gsan_testing");
   init_gsan_testing(gsan_m);
   auto gsan_profile_m = m.def_submodule("gsan_profile");
   init_gsan_profile(gsan_profile_m);
+#endif
   auto ll_m = m.def_submodule("linear_layout");
   init_linear_layout(ll_m);
   auto gluon_m = m.def_submodule("gluon_ir");

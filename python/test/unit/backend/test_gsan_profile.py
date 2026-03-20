@@ -9,9 +9,13 @@ import triton.language as tl
 from triton._internal_testing import is_blackwell, is_cuda, is_hopper_or_newer, run_in_process
 from triton.experimental import gluon
 from triton.experimental.gluon import language as gl
-from triton.experimental.gsan import create_mem_pool as create_race_mem_pool
-from triton.experimental.gsan.profile import AllocationProfile, is_installed
 from triton.tools.tensor_descriptor import TensorDescriptor
+
+try:
+    from triton.experimental.gsan import create_mem_pool as create_race_mem_pool
+    from triton.experimental.gsan.profile import AllocationProfile, is_installed
+except ImportError:
+    pytest.skip("GSan is not built in this configuration", allow_module_level=True)
 
 
 @pytest.fixture(autouse=True)
