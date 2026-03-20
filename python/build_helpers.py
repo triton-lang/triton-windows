@@ -63,6 +63,11 @@ class BuildHelperArgs:
         return os.path.join(self.cache_path, "archives")
 
 
+def _normalize_bool(value: str, default: str = "") -> bool:
+    effective_value = value if value is not None else default
+    return effective_value.upper() in ["ON", "1", "YES", "TRUE", "Y"]
+
+
 def _normalize_optional(value: str) -> Optional[str]:
     if value is None:
         return None
@@ -510,7 +515,9 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
     )
     # In triton-windows, we do not download a separate ptxas for blackwell
 
-    if _normalize_bool(os.getenv("TRITON_BUILD_PROTON", "ON")):  # Default ON
+    need_copy_all = (_normalize_bool(os.getenv("TRITON_BUILD_PROTON", "ON"))
+                     or _normalize_bool(os.getenv("TRITON_BUILD_GSAN", "OFF")))
+    if need_copy_all:
         crt = "crt" if int(nvidia_toolchain_version["cudacrt"].split(".")[0]) >= 13 else "nvcc"
         download_and_copy(
             name=f"nvidia/{crt}-" + nvidia_toolchain_version["cudacrt"],
