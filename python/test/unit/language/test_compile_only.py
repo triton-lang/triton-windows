@@ -194,8 +194,14 @@ module attributes {"ttg.num-ctas" = 2 : i32, "ttg.num-warps" = 4 : i32, ttg.targ
     assert k.asm["cubin"] != b""
 
 
+def _is_gsan_built() -> bool:
+    return hasattr(triton._C.libtriton, "gsan_testing")
+
+
 @pytest.mark.parametrize("instrumentation_mode", ["", "consan", "gsan", "iisan", "fpsan", "gsan,consan"])
 def test_maxnreg_instrumentation_mode(instrumentation_mode, monkeypatch, fresh_triton_cache):
+    if "gsan" in instrumentation_mode and not _is_gsan_built():
+        pytest.skip("GSan is not built in this configuration")
 
     class UnavailableDriver:
 
