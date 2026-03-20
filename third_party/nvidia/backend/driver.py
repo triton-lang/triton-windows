@@ -63,16 +63,21 @@ def library_dirs():
 
 
 def _cuda_driver_is_active():
-    candidates = ["libcuda.so.1"]
-    try:
-        candidates.extend([os.path.join(path, "libcuda.so.1") for path in libcuda_dirs()])
-    except Exception:
-        pass
+    if os.name == "nt":
+        candidates = ["nvcuda.dll"]
+        load_library = ctypes.WinDLL
+    else:
+        candidates = ["libcuda.so.1"]
+        try:
+            candidates.extend([os.path.join(path, "libcuda.so.1") for path in libcuda_dirs()])
+        except Exception:
+            pass
+        load_library = ctypes.CDLL
 
     libcuda = None
     for candidate in candidates:
         try:
-            libcuda = ctypes.CDLL(candidate)
+            libcuda = load_library(candidate)
             break
         except OSError:
             continue
