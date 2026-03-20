@@ -832,7 +832,7 @@ def get_nvidia_toolchain_packages(need_copy_all=False):
 def download_and_copy_dependencies(helper_args: BuildHelperArgs):
     download_and_copy_amd_codegen(helper_args)
 
-    need_copy_all = (check_env_flag("TRITON_BUILD_PROTON", "ON") or check_env_flag("TRITON_BUILD_GSAN"))
+    need_copy_all = (check_env_flag("TRITON_BUILD_PROTON", "ON") or check_env_flag("TRITON_BUILD_NVIDIA_GSAN_RUNTIME"))
     for package in get_nvidia_toolchain_packages(need_copy_all):
         download_and_copy(
             name=package.name,
