@@ -9,7 +9,11 @@ import functools
 import sysconfig
 
 from triton import __version__, knobs
-from triton.windows_utils import normalize_path
+
+if os.name == "nt":
+    from triton.windows_utils import normalize_path
+else:
+    normalize_path = os.path.abspath
 
 
 class CacheManager(ABC):
