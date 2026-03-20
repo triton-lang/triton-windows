@@ -937,4 +937,27 @@ TreeData::TreeData(const std::string &path, ContextSource *contextSource)
 
 TreeData::~TreeData() {}
 
+std::unique_ptr<Data> makeTreeData(const std::string &path,
+                                   ContextSource *contextSource) {
+  return std::make_unique<TreeData>(path, contextSource);
+}
+
+std::vector<uint8_t> getTreeDataMsgPack(const Data *data, size_t phase) {
+  auto *treeData = dynamic_cast<const TreeData *>(data);
+  if (!treeData) {
+    throw std::runtime_error(
+        "Only TreeData is supported for getData() for now");
+  }
+  return treeData->toMsgPack(phase);
+}
+
+std::string getTreeDataJson(const Data *data, size_t phase) {
+  auto *treeData = dynamic_cast<const TreeData *>(data);
+  if (!treeData) {
+    throw std::runtime_error(
+        "Only TreeData is supported for getData() for now");
+  }
+  return treeData->toJsonString(phase);
+}
+
 } // namespace proton
