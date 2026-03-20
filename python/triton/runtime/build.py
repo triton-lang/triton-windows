@@ -14,12 +14,14 @@ from pathlib import Path
 
 from types import ModuleType
 
-from triton.windows_utils import get_8dot3_short_path, normalize_path
 from .cache import get_cache_manager
 from .. import knobs
 
 if os.name == "nt":
-    from triton.windows_utils import find_msvc_winsdk, find_python
+    from triton.windows_utils import find_msvc_winsdk, find_python, get_8dot3_short_path, normalize_path
+else:
+    normalize_path = os.path.abspath
+    get_8dot3_short_path = os.path.abspath
 
 
 @functools.lru_cache()
@@ -253,7 +255,7 @@ def _compile_so(src: bytes, src_path: str, name: str, library_dirs: list[str] | 
 
 def _compile_so_from_file(src_path: str, name: str, library_dirs: list[str] | None, include_dirs: list[str] | None,
                           libraries: list[str] | None, ccflags: list[str] | None, load_module: bool):
-    src_path = os.path.abspath(src_path)
+    src_path = normalize_path(src_path)
     src_name = os.path.basename(src_path)
     with open(src_path, "rb") as f:
         src = f.read()
@@ -267,6 +269,7 @@ def _compile_so_from_src(src: str, name: str, library_dirs: list[str] | None, in
                          libraries: list[str] | None, ccflags: list[str] | None, language, load_module: bool):
     src_bytes = src.encode("utf-8")
     with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = normalize_path(tmpdir)
         src_path = os.path.join(tmpdir, f"{name}{_get_file_extension(language)}")
         with open(src_path, "wb") as f:
             f.write(src_bytes)
