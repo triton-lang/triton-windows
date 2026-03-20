@@ -2,8 +2,6 @@
 #include "Backend/Backend.h"
 #include "Context/Python.h"
 #include "Context/Shadow.h"
-#include "Data/TraceData.h"
-#include "Data/TreeData.h"
 #include "Profiler/Cupti/CuptiProfiler.h"
 #include "Profiler/Instrumentation/InstrumentationProfiler.h"
 #include "Profiler/Profiler.h"
@@ -19,6 +17,13 @@
 #include <vector>
 
 namespace proton {
+
+std::unique_ptr<Data> makeTreeData(const std::string &path,
+                                   ContextSource *contextSource);
+std::unique_ptr<Data> makeTraceData(const std::string &path,
+                                    ContextSource *contextSource);
+std::vector<uint8_t> getTreeDataMsgPack(const Data *data, size_t phase);
+std::string getTreeDataJson(const Data *data, size_t phase);
 
 namespace {
 
@@ -39,9 +44,9 @@ std::unique_ptr<Data> makeData(const std::string &dataName,
                                const std::string &path,
                                ContextSource *contextSource) {
   if (toLower(dataName) == "tree") {
-    return std::make_unique<TreeData>(path, contextSource);
+    return makeTreeData(path, contextSource);
   } else if (toLower(dataName) == "trace") {
-    return std::make_unique<TraceData>(path, contextSource);
+    return makeTraceData(path, contextSource);
   }
   throw makeInvalidArgument("Unknown data: " + dataName);
 }
@@ -342,21 +347,13 @@ std::vector<uint8_t> SessionManager::getDataMsgPack(size_t sessionId,
                                                     size_t phase) {
   std::lock_guard<std::mutex> lock(mutex);
   auto *session = getSessionOrThrow(sessionId);
-  auto *treeData = dynamic_cast<TreeData *>(session->data.get());
-  if (!treeData) {
-    throw makeLogicError("Only TreeData is supported for getData() for now");
-  }
-  return treeData->toMsgPack(phase);
+  return getTreeDataMsgPack(session->data.get(), phase);
 }
 
 std::string SessionManager::getData(size_t sessionId, size_t phase) {
   std::lock_guard<std::mutex> lock(mutex);
   auto *session = getSessionOrThrow(sessionId);
-  auto *treeData = dynamic_cast<TreeData *>(session->data.get());
-  if (!treeData) {
-    throw makeLogicError("Only TreeData is supported for getData() for now");
-  }
-  return treeData->toJsonString(phase);
+  return getTreeDataJson(session->data.get(), phase);
 }
 
 void SessionManager::clearData(size_t sessionId, size_t phase,
