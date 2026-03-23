@@ -4,16 +4,17 @@ on:
   push:
     branches:
       - main-windows
+      - main-windows-staged
   pull_request:
     branches:
       - main-windows
+      - main-windows-staged
   workflow_dispatch:
     inputs:
       git_tag:
-        description: Git tag
-        required: true
+        description: Git tag, leave blank to use the triggering branch
+        required: false
         type: string
-        default: main-windows
       python_minor:
         description: Python minor version
         required: true
@@ -48,7 +49,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.git_tag || '' }}
+          ref: ${{ inputs.git_tag || github.ref_name }}
           path: triton-windows
           fetch-depth: 1
 
