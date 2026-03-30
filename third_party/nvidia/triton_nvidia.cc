@@ -75,7 +75,11 @@ public:
   }
 
   CudaExampleUtils() {
+#ifdef _WIN32
+    dylibHandle = dlopen("nvcuda.dll", RTLD_NOLOAD | RTLD_LAZY);
+#else
     dylibHandle = dlopen("libcuda.so.1", RTLD_NOLOAD | RTLD_LAZY);
+#endif
     if (dylibHandle == nullptr) {
       throw std::runtime_error(
           "Could not find an already-loaded `libcuda.so.1`. Initialize "
