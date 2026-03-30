@@ -2,6 +2,17 @@ include_directories(${PROJECT_SOURCE_DIR}/examples/plugins/DialectPlugins/Dialec
 include_directories(${PROJECT_BINARY_DIR}/examples/plugins/DialectPlugins/DialectPlugin/include)
 include_directories(${PROJECT_SOURCE_DIR}/third_party/nvidia/include)
 
+if(WIN32)
+  set(MLIR_DIALECT_PLUGIN_LINK_LIBS
+      MLIRPass
+      LLVMSupport
+      MLIRSupport
+      MLIRArithDialect
+      TritonNVIDIAGPUToLLVM)
+else()
+  set(MLIR_DIALECT_PLUGIN_LINK_LIBS triton)
+endif()
+
 add_mlir_dialect_library(MLIRDialectPlugin
         DialectPluginTypes.cpp
         DialectPluginDialect.cpp
@@ -20,7 +31,7 @@ add_mlir_dialect_library(MLIRDialectPlugin
         MLIRDialectPluginPassesIncGen
 
         LINK_LIBS PUBLIC
-        triton
+        ${MLIR_DIALECT_PLUGIN_LINK_LIBS}
 
         "$<$<PLATFORM_ID:Darwin>:-undefined dynamic_lookup>"
         )
