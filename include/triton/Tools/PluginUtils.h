@@ -97,6 +97,26 @@ struct PluginInfo {
   const char *tritonVersion;
 };
 
+/// The public entry point for loading a Triton plugin.
+///
+/// When a plugin is loaded by the driver, Triton will call this entry point to
+/// obtain information about the plugin and how to load it. This function must
+/// to be implemented by the plugin.
+///
+/// Triton expects this function to return a pointer to a valid \c PluginInfo
+/// struct. Because plugins are loaded in-process permanently, the \c PluginInfo
+/// struct has a lifetime spanning the duration of the program; thus, no
+/// deallocation function is required from the plugin. As an extra precaution
+/// against leaks, return a pointer to a static struct:
+///
+/// ```
+/// mlir::triton::plugin::PluginInfo *tritonGetPluginInfo() {
+///   static mlir::triton::plugin::PluginInfo info = { ... };
+///   return &info;
+/// }
+/// ```
+using GetPluginInfoFn = PluginInfo *(*)();
+
 /// A helper structure for storing information about a pass registered by a
 /// plugin.
 struct Pass {
@@ -180,26 +200,5 @@ private:
 const std::vector<TritonPlugin> &loadPlugins();
 
 } // namespace mlir::triton::plugin
-
-/// The public entry point for loading a Triton plugin.
-///
-/// When a plugin is loaded by the driver, Triton will call this entry point to
-/// obtain information about the plugin and how to load it. This function must
-/// to be implemented by the plugin.
-///
-/// Triton expects this function to return a pointer to a valid \c PluginInfo
-/// struct. Because plugins are loaded in-process permanently, the \c PluginInfo
-/// struct has a lifetime spanning the duration of the program; thus, no
-/// deallocation function is required from the plugin. As an extra precaution
-/// against leaks, return a pointer to a static struct:
-///
-/// ```
-/// mlir::triton::plugin::PluginInfo *tritonGetPluginInfo() {
-///   static mlir::triton::plugin::PluginInfo info = { ... };
-///   return &info;
-/// }
-/// ```
-extern "C" mlir::triton::plugin::PluginInfo *LLVM_ATTRIBUTE_WEAK
-tritonGetPluginInfo();
 
 #endif // TRITON_PLUGIN_UTILS_H
