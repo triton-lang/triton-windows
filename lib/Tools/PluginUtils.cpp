@@ -26,7 +26,7 @@ llvm::Expected<TritonPlugin> TritonPlugin::load(const std::string &filename) {
         Twine("Plugin entry point not found in '") + filename + "'.",
         llvm::inconvertibleErrorCode());
 
-  plugin.info = reinterpret_cast<decltype(tritonGetPluginInfo) *>(getInfoFn)();
+  plugin.info = reinterpret_cast<GetPluginInfoFn>(getInfoFn)();
 
   if (plugin.info->apiVersion != TRITON_PLUGIN_API_VERSION)
     return llvm::make_error<llvm::StringError>(
