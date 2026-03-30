@@ -75,8 +75,8 @@ typedef struct {
 } TDMDescriptor;
 
 typedef struct {
-  PyObject_HEAD;
-  TDMDescriptor desc;
+  PyObject_HEAD // No extra semicolon in typedef struct
+      TDMDescriptor desc;
 } PyTDMDescriptorObject;
 
 static PyObject *PyTDMDescriptor_new(PyTypeObject *type, PyObject *args,
@@ -109,8 +109,8 @@ typedef enum { ARG_CONSTEXPR = 0, ARG_KERNEL = 1, ARG_TUPLE = 2 } ArgType;
 
 // Annotation struct to know how the argument should be handled.
 typedef struct {
-  PyObject_HEAD;
-  PyObject *nested_tuple; // Can be a List of PyKernelArgObjects or None
+  PyObject_HEAD               // No extra semicolon in typedef struct
+      PyObject *nested_tuple; // Can be a List of PyKernelArgObjects or None
   ArgType type;
 } PyKernelArgObject;
 
