@@ -24,12 +24,18 @@ public:
 
 template <typename T> class PhaseStore final : public PhaseStoreBase {
 public:
-  PhaseStore() = default;
+  using CreateFn = T *(*)();
+  using DeleteFn = void (*)(T *);
+
+  PhaseStore(CreateFn createFn, DeleteFn deleteFn)
+      : createFn(createFn), deleteFn(deleteFn) {}
   ~PhaseStore() override = default;
 
   struct Slot {
+    explicit Slot(DeleteFn deleteFn) : value(nullptr, deleteFn) {}
+
     mutable std::shared_mutex mutex;
-    std::unique_ptr<T> value;
+    std::unique_ptr<T, DeleteFn> value;
   };
 
   void *createPtr(size_t phase) override {
@@ -38,13 +44,13 @@ public:
       std::unique_lock<std::shared_mutex> lock(phasesMutex);
       auto &entry = phases[phase];
       if (!entry)
-        entry = std::make_shared<Slot>();
+        entry = std::make_shared<Slot>(deleteFn);
       slot = entry;
     }
     {
       std::unique_lock<std::shared_mutex> slotLock(slot->mutex);
       if (!slot->value) // slot value might not exist yet or been cleared
-        slot->value = std::make_unique<T>();
+        slot->value.reset(createFn());
       return slot->value.get();
     }
   }
@@ -102,6 +108,8 @@ private:
     return it->second;
   }
 
+  CreateFn createFn;
+  DeleteFn deleteFn;
   mutable std::shared_mutex phasesMutex;
   std::map<size_t, std::shared_ptr<Slot>> phases;
 };

@@ -507,7 +507,9 @@ void TraceData::doDump(std::ostream &os, OutputFormat outputFormat,
 }
 
 TraceData::TraceData(const std::string &path, ContextSource *contextSource)
-    : Data(path, contextSource) {
+    : Data(path, contextSource),
+      tracePhases([]() -> Trace * { return new Trace(); },
+                  [](Trace *trace) { delete trace; }) {
   initPhaseStore(tracePhases);
 }
 
