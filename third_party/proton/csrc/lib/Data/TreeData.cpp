@@ -766,7 +766,9 @@ void TreeData::doDump(std::ostream &os, OutputFormat outputFormat,
 }
 
 TreeData::TreeData(const std::string &path, ContextSource *contextSource)
-    : Data(path, contextSource) {
+    : Data(path, contextSource),
+      treePhases([]() -> Tree * { return new Tree(); },
+                 [](Tree *tree) { delete tree; }) {
   initPhaseStore(treePhases);
 }
 
