@@ -28,6 +28,8 @@ on:
 jobs:
   pre-commit:
     uses: ./.github/workflows/pre-commit.yml
+    with:
+      git_tag: ${{ inputs.git_tag }}
 
   build-and-test-triton:
     runs-on: triton-windows1
