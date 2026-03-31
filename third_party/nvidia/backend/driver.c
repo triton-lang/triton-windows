@@ -3,11 +3,13 @@
 
 #ifndef _WIN32
 #include <dlfcn.h>
+#include <malloc.h>
 #else
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
 
+#include <stdalign.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -1128,51 +1130,21 @@ typedef enum {
 } ExtractorTypeIndex;
 
 Extractor extraction_map[EXTRACTOR_TYPE_COUNT] = {
-    [EXTRACTOR_UNKOWN_INDEX] =
-        (Extractor){.extract = NULL, .size = 0, .name = NULL},
-    [EXTRACTOR_POINTER_INDEX] = (Extractor){.extract = extractPointer,
-                                            .size = sizeof(CUdeviceptr),
-                                            .name = NULL},
-    [EXTRACTOR_INT8_INDEX] = (Extractor){.extract = extractI8,
-                                         .size = sizeof(int8_t),
-                                         .name = {"i8"}},
-    [EXTRACTOR_INT16_INDEX] = (Extractor){.extract = extractI16,
-                                          .size = sizeof(int16_t),
-                                          .name = {"i16"}},
-    [EXTRACTOR_INT32_INDEX] = (Extractor){.extract = extractI32,
-                                          .size = sizeof(int32_t),
-                                          .name = {"i1", "i32"}},
-    [EXTRACTOR_INT64_INDEX] = (Extractor){.extract = extractI64,
-                                          .size = sizeof(int64_t),
-                                          .name = {"i64"}},
-    [EXTRACTOR_UINT8_INDEX] = (Extractor){.extract = extractU8,
-                                          .size = sizeof(uint8_t),
-                                          .name = {"u8"}},
-    [EXTRACTOR_UINT16_INDEX] = (Extractor){.extract = extractU16,
-                                           .size = sizeof(uint16_t),
-                                           .name = {"u16"}},
-    [EXTRACTOR_UINT32_INDEX] = (Extractor){.extract = extractU32,
-                                           .size = sizeof(uint32_t),
-                                           .name = {"u1", "u32"}},
-    [EXTRACTOR_UINT64_INDEX] = (Extractor){.extract = extractU64,
-                                           .size = sizeof(uint64_t),
-                                           .name = {"u64"}},
-    [EXTRACTOR_FP16_INDEX] = (Extractor){.extract = extractFP16,
-                                         .size = sizeof(uint16_t),
-                                         .name = {"fp16"}},
-    [EXTRACTOR_BF16_INDEX] = (Extractor){.extract = extractBF16,
-                                         .size = sizeof(uint16_t),
-                                         .name = {"bf16"}},
-    [EXTRACTOR_FP32_INDEX] = (Extractor){.extract = extractFP32,
-                                         .size = sizeof(uint32_t),
-                                         .name = {"fp32", "f32"}},
-    [EXTRACTOR_FP64_INDEX] = (Extractor){.extract = extractFP64,
-                                         .size = sizeof(uint64_t),
-                                         .name = {"fp64"}},
-    [EXTRACTOR_NVTMADESC_INDEX] = (Extractor){.extract = extractTmaDesc,
-                                              .size = sizeof(CUtensorMap),
-                                              .alignment = alignof(CUtensorMap),
-                                              .name = {"nvTmaDesc"}},
+    {NULL, 0, 0, NULL},
+    {extractPointer, sizeof(CUdeviceptr), 0, NULL},
+    {extractI8, sizeof(int8_t), 0, {"i8"}},
+    {extractI16, sizeof(int16_t), 0, {"i16"}},
+    {extractI32, sizeof(int32_t), 0, {"i1", "i32"}},
+    {extractI64, sizeof(int64_t), 0, {"i64"}},
+    {extractU8, sizeof(uint8_t), 0, {"u8"}},
+    {extractU16, sizeof(uint16_t), 0, {"u16"}},
+    {extractU32, sizeof(uint32_t), 0, {"u1", "u32"}},
+    {extractU64, sizeof(uint64_t), 0, {"u64"}},
+    {extractFP16, sizeof(uint16_t), 0, {"fp16"}},
+    {extractBF16, sizeof(uint16_t), 0, {"bf16"}},
+    {extractFP32, sizeof(uint32_t), 0, {"fp32", "f32"}},
+    {extractFP64, sizeof(uint64_t), 0, {"fp64"}},
+    {extractTmaDesc, sizeof(CUtensorMap), alignof(CUtensorMap), {"nvTmaDesc"}},
 };
 
 Extractor getExtractor(uint8_t index) {
