@@ -2,6 +2,17 @@ name: Pre-Commit Check
 
 on:
   workflow_call:
+    inputs:
+      git_tag:
+        description: Git tag, leave blank to use the triggering branch
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      git_tag:
+        description: Git tag, leave blank to use the triggering branch
+        required: false
+        type: string
 
 jobs:
   pre-commit:
@@ -10,6 +21,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.git_tag || github.ref }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
