@@ -99,6 +99,7 @@ docs/sg_execution_times.rst
 .DS_Store
 
 .tmp
+/dist/
 /main.*
 /*.mlir
-/wheelhouse
+/wheelhouse/
