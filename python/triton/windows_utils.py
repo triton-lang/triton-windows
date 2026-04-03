@@ -359,7 +359,7 @@ def find_cuda_env() -> tuple[Optional[str], list[str], list[str]]:
 
 
 def find_cuda_bundled() -> tuple[Optional[str], list[str], list[str]]:
-    cuda_base_path = (Path(sysconfig.get_paths()["platlib"]) / "triton" / "backends" / "nvidia")
+    cuda_base_path = Path(__file__).parent / "backends" / "nvidia"
     return check_and_find_cuda(cuda_base_path)
 
 
