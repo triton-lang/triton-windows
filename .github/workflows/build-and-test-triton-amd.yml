@@ -50,7 +50,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.git_tag || '' }}
+          ref: ${{ inputs.git_tag || github.ref }}
           path: triton-windows
           fetch-depth: 1
 
