@@ -15,6 +15,19 @@
 #define RTLD_LAZY 0
 #define RTLD_LOCAL 0
 static char dlerror_buf[512];
+// Format a Windows error code into a human-readable message.
+static void win32_format_error(char *buf, size_t bufsize, const char *context,
+                               DWORD err) {
+  char msg[256] = {0};
+  DWORD len =
+      FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                     NULL, err, 0, msg, sizeof(msg), NULL);
+  // Strip trailing \r\n
+  while (len > 0 && (msg[len - 1] == '\r' || msg[len - 1] == '\n'))
+    msg[--len] = '\0';
+  snprintf(buf, bufsize, "%s: %s (error %lu)", context, msg,
+           (unsigned long)err);
+}
 static inline void *dlopen(const char *filename, int flags) {
   (void)flags;
   // Reuse HIP DLL if already loaded to share GPU memory context
@@ -23,8 +36,11 @@ static inline void *dlopen(const char *filename, int flags) {
   if (!h) {
     h = LoadLibraryA(filename);
     if (!h) {
-      snprintf(dlerror_buf, sizeof(dlerror_buf),
-               "LoadLibrary failed with error %lu", GetLastError());
+      char context[256];
+      snprintf(context, sizeof(context), "LoadLibrary failed for '%s'",
+               filename);
+      win32_format_error(dlerror_buf, sizeof(dlerror_buf), context,
+                         GetLastError());
     }
   }
   return (void *)h;
@@ -32,9 +48,11 @@ static inline void *dlopen(const char *filename, int flags) {
 static inline void *dlsym(void *handle, const char *symbol) {
   void *p = (void *)GetProcAddress((HMODULE)handle, symbol);
   if (!p) {
-    snprintf(dlerror_buf, sizeof(dlerror_buf),
-             "GetProcAddress failed for %s with error %lu", symbol,
-             GetLastError());
+    char context[256];
+    snprintf(context, sizeof(context), "GetProcAddress failed for '%s'",
+             symbol);
+    win32_format_error(dlerror_buf, sizeof(dlerror_buf), context,
+                       GetLastError());
   }
   return p;
 }
