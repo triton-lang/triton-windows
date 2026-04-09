@@ -75,7 +75,6 @@ jobs:
           $Env:TRITON_BUILD_PROTON = "0"
           $Env:CIBW_BUILD = "{cp3${{ env.PYTHON_MINOR }}-win_amd64,}"
           $Env:CIBW_BUILD_VERBOSITY = "1"
-          $Env:CIBW_ENABLE = "cpython-freethreading"
           if (Test-Path -Path wheelhouse) { rm wheelhouse/* }
           if (Test-Path -Path setup.py)
           {
