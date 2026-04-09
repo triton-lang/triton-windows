@@ -80,7 +80,6 @@ jobs:
             $Env:CIBW_BUILD = "cp3{10,11,12,13,14}-win_amd64"
           }
           $Env:CIBW_BUILD_VERBOSITY = "1"
-          $Env:CIBW_ENABLE = "cpython-freethreading"
           if (Test-Path -Path setup.py)
           {
             cibuildwheel .
