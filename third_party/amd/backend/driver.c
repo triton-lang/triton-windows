@@ -25,8 +25,8 @@ static void win32_format_error(char *buf, size_t bufsize, const char *context,
   // Strip trailing \r\n
   while (len > 0 && (msg[len - 1] == '\r' || msg[len - 1] == '\n'))
     msg[--len] = '\0';
-  snprintf(buf, bufsize, "%s: %s (error %lu)", context, msg,
-           (unsigned long)err);
+  snprintf(buf, bufsize, "%s: %s (error %lu)", context,
+           len ? msg : "Unknown error", (unsigned long)err);
 }
 static inline void *dlopen(const char *filename, int flags) {
   (void)flags;

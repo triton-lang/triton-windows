@@ -378,8 +378,8 @@ static void win32_format_error(char *buf, size_t bufsize, const char *context,
                      NULL, err, 0, msg, sizeof(msg), NULL);
   while (len > 0 && (msg[len - 1] == '\r' || msg[len - 1] == '\n'))
     msg[--len] = '\0';
-  snprintf(buf, bufsize, "%s: %s (error %lu)", context, msg,
-           (unsigned long)err);
+  snprintf(buf, bufsize, "%s: %s (error %lu)", context,
+           len ? msg : "Unknown error", (unsigned long)err);
 }
 #define defineGetFunctionHandle(name, symbolName)                              \
   static symbolName##_t name() {                                               \
