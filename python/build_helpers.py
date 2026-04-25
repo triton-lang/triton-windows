@@ -339,6 +339,12 @@ def _get_thirdparty_package_cmake_vars(package: Package, helper_args: BuildHelpe
         cmake_vars[package.lib_flag] = f"{package_dir}/lib"
     if package.syspath_var_name:
         cmake_vars[package.syspath_var_name] = package_dir
+    if package.package == "llvm":
+        cmake_vars.update({
+            "LLVM_DIR": f"{package_dir}/lib/cmake/llvm",
+            "MLIR_DIR": f"{package_dir}/lib/cmake/mlir",
+            "LLD_DIR": f"{package_dir}/lib/cmake/lld",
+        })
     return cmake_vars
 
 
@@ -362,12 +368,26 @@ def _cmake_escape(value: str) -> str:
     return value.replace("\\", "/").replace('"', '\\"')
 
 
+_LLVM_CMAKE_CACHE_VARS = {
+    "LLVM_DIR",
+    "LLVM_INCLUDE_DIRS",
+    "LLVM_LIBRARY_DIR",
+    "LLVM_SYSPATH",
+    "MLIR_DIR",
+    "LLD_DIR",
+}
+
+
 def write_thirdparty_cmake_vars(output: str, packages: list[str], helper_args: BuildHelperArgs):
     cmake_vars = get_thirdparty_cmake_vars(packages, helper_args)
     output_path = Path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as output_file:
         for key, value in sorted(cmake_vars.items()):
+            if key in _LLVM_CMAKE_CACHE_VARS:
+                # Switching LLVM revisions must not leave stale CMake package paths behind.
+                output_file.write(f'set({key} "{_cmake_escape(value)}" CACHE PATH "Resolved {key}" FORCE)\n')
+                continue
             output_file.write(f'if(NOT DEFINED {key} OR "${{{key}}}" STREQUAL "")\n')
             output_file.write(f'  set({key} "{_cmake_escape(value)}")\n')
             output_file.write('endif()\n')
