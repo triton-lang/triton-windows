@@ -351,8 +351,10 @@ if(TRITON_BUILD_PYTHON_MODULE)
     endif()
   endif()
 
-  # Build plugins when building libtriton since they depend on libtriton.
-  add_subdirectory(examples/plugins)
+  if(TRITON_BUILD_UT)
+    # Build plugins when building libtriton since they depend on libtriton.
+    add_subdirectory(examples/plugins)
+  endif()
 endif()
 
 if (UNIX AND NOT APPLE AND NOT TRITON_EXT_ENABLED)
