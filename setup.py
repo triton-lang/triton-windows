@@ -338,6 +338,11 @@ def get_thirdparty_packages(packages: list):
             thirdparty_cmake_args.append(f"-D{p.lib_flag}={package_dir}/lib")
         if p.syspath_var_name:
             thirdparty_cmake_args.append(f"-D{p.syspath_var_name}={package_dir}")
+        if p.package == "llvm":
+            # Keep CMake package cache entries in sync when switching LLVM revisions.
+            thirdparty_cmake_args.append(f"-DLLVM_DIR={package_dir}/lib/cmake/llvm")
+            thirdparty_cmake_args.append(f"-DMLIR_DIR={package_dir}/lib/cmake/mlir")
+            thirdparty_cmake_args.append(f"-DLLD_DIR={package_dir}/lib/cmake/lld")
         if p.sym_name is not None:
             sym_link_path = os.path.join(package_root_dir, p.sym_name)
             update_symlink(sym_link_path, package_dir)
