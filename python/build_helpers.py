@@ -434,6 +434,9 @@ def _get_thirdparty_package_cmake_vars(package: Package, helper_args: BuildHelpe
         cmake_vars[package.lib_flag] = f"{package_dir}/lib"
     if package.syspath_var_name:
         cmake_vars[package.syspath_var_name] = package_dir
+    if package.package == "llvm":
+        for name in ["llvm", "mlir", "lld"]:
+            cmake_vars[f"{name.upper()}_DIR"] = f"{package_dir}/lib/cmake/{name}"
     return cmake_vars
 
 
@@ -463,6 +466,12 @@ def write_thirdparty_cmake_vars(output: str, packages: list[str], helper_args: B
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as output_file:
         for key, value in sorted(cmake_vars.items()):
+            if key != "LLVM_SYSPATH" and key.startswith(("LLVM_", "MLIR_", "LLD_")):
+                output_file.write(f'set({key} "{_cmake_escape(value)}" CACHE PATH "Resolved {key}" FORCE)\n')
+                continue
+            if key == "LLVM_SYSPATH":
+                output_file.write(f'set({key} "{_cmake_escape(value)}")\n')
+                continue
             output_file.write(f'if(NOT DEFINED {key} OR "${{{key}}}" STREQUAL "")\n')
             output_file.write(f'  set({key} "{_cmake_escape(value)}")\n')
             output_file.write('endif()\n')
