@@ -94,4 +94,18 @@ jobs:
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
           cd ../python/test/unit
+
+          @'
+          import torch
+          import triton
+          from triton.backends import backends
+
+          print("torch", torch.__version__)
+          print("hip", torch.version.hip)
+          print("cuda_available", torch.cuda.is_available())
+          print("device_count", torch.cuda.device_count())
+          print("backends", [(name, backend.driver.is_active()) for name, backend in backends.items()])
+          '@ | python -
+
+          python -m pytest -n 8 --collect-only -q cuda/test_tensor_descriptor_cuda.py
           pytest ${{ env.PYTEST_ARGS }}
