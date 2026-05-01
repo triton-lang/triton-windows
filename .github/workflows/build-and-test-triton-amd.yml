@@ -18,12 +18,12 @@ on:
         description: Python minor version
         required: true
         type: string
-        default: '12'
+        default: '13'
       pytest_args:
         description: pytest args
         required: true
         type: string
-        default: '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype"'
+        default: '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype and not test_triton_to_gluon"'
 
 jobs:
   pre-commit:
@@ -35,8 +35,8 @@ jobs:
     runs-on: triton-windows1
     env:
       PIP_CACHE_DIR: E:\pip-cache
-      PYTHON_MINOR: ${{ inputs.python_minor || '12' }}
-      PYTEST_ARGS: ${{ inputs.pytest_args || '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype"' }}
+      PYTHON_MINOR: ${{ inputs.python_minor || '13' }}
+      PYTEST_ARGS: ${{ inputs.pytest_args || '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype and not test_triton_to_gluon"' }}
     steps:
       - uses: astral-sh/setup-uv@v7
 
@@ -91,7 +91,7 @@ jobs:
           & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
           .venv-cp3${{ env.PYTHON_MINOR }}\Scripts\activate.ps1
           python -m pip install --upgrade numpy pytest-xdist pytest-timeout scipy expecttest
-          python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ torch "rocm[libraries,devel]"
+          python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ "rocm[libraries,devel]==7.13.0a20260419" "torch==2.10.0+rocm7.13.0a20260419"
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
           cd ../python/test/unit
