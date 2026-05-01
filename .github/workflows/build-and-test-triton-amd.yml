@@ -1,12 +1,6 @@
 name: Build and Test Triton (AMD)
 
 on:
-  push:
-    branches:
-      - main-windows
-  pull_request:
-    branches:
-      - main-windows
   workflow_dispatch:
     inputs:
       git_tag:
@@ -19,11 +13,26 @@ on:
         required: true
         type: string
         default: '13'
+      rocm_minor:
+        description: ROCm minor version
+        required: true
+        type: string
+        default: '13'
+      rocm_date:
+        description: ROCm nightly date
+        required: true
+        type: string
+        default: '20260419'
+      torch_minor:
+        description: PyTorch minor version
+        required: true
+        type: string
+        default: '10'
       pytest_args:
         description: pytest args
         required: true
         type: string
-        default: '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype and not test_triton_to_gluon"'
+        default: '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype and not test_triton_to_gluon" --tb=short'
 
 jobs:
   pre-commit:
@@ -35,10 +44,8 @@ jobs:
     runs-on: triton-windows1
     env:
       PIP_CACHE_DIR: E:\pip-cache
-      PYTHON_MINOR: ${{ inputs.python_minor || '13' }}
-      PYTEST_ARGS: ${{ inputs.pytest_args || '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype and not test_triton_to_gluon"' }}
     steps:
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v8.1.0
 
       - name: Clean caches
         shell: powershell
@@ -57,8 +64,8 @@ jobs:
       - name: Create venv
         shell: powershell
         run: |
-          uv venv .venv-cp3${{ env.PYTHON_MINOR }} --python 3.${{ env.PYTHON_MINOR }}.10 --clear
-          .venv-cp3${{ env.PYTHON_MINOR }}\Scripts\activate.ps1
+          uv venv .venv-cp3${{ inputs.python_minor }} --python 3.${{ inputs.python_minor }} --clear
+          .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
           python -m ensurepip --upgrade
           python -m pip install --upgrade pip
 
@@ -66,14 +73,14 @@ jobs:
         shell: powershell
         run: |
           & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
-          .venv-cp3${{ env.PYTHON_MINOR }}\Scripts\activate.ps1
+          .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
           python -m pip install --upgrade cibuildwheel
 
           cd triton-windows
           git rev-parse HEAD
 
           $Env:TRITON_BUILD_PROTON = "0"
-          $Env:CIBW_BUILD = "{cp3${{ env.PYTHON_MINOR }}-win_amd64,}"
+          $Env:CIBW_BUILD = "{cp3${{ inputs.python_minor }}-win_amd64,}"
           $Env:CIBW_BUILD_VERBOSITY = "1"
           if (Test-Path -Path wheelhouse) { rm wheelhouse/* }
           if (Test-Path -Path setup.py)
@@ -85,14 +92,18 @@ jobs:
             cibuildwheel python
           }
 
+      - uses: actions/upload-artifact@v7
+        with:
+          path: triton-windows/wheelhouse/*
+
       - name: Unit test
         shell: powershell
         run: |
           & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
-          .venv-cp3${{ env.PYTHON_MINOR }}\Scripts\activate.ps1
+          .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
           python -m pip install --upgrade numpy pytest-xdist pytest-timeout scipy expecttest
-          python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ "rocm[libraries,devel]==7.13.0a20260419" "torch==2.10.0+rocm7.13.0a20260419"
+          python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ "rocm[libraries,devel]==7.${{ inputs.rocm_minor }}.0a${{ inputs.rocm_date }}" "torch==2.${{ inputs.torch_minor }}.0+rocm7.${{ inputs.rocm_minor }}.0a${{ inputs.rocm_date }}"
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
           cd ../python/test/unit
-          pytest ${{ env.PYTEST_ARGS }}
+          pytest ${{ inputs.pytest_args }}
