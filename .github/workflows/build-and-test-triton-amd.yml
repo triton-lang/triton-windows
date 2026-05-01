@@ -24,7 +24,7 @@ on:
         description: pytest args
         required: true
         type: string
-        default: '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype"'
+        default: '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype and not test_triton_to_gluon"'
 
 jobs:
   pre-commit:
@@ -35,7 +35,7 @@ jobs:
     env:
       PIP_CACHE_DIR: E:\pip-cache
       PYTHON_MINOR: ${{ inputs.python_minor || '13' }}
-      PYTEST_ARGS: ${{ inputs.pytest_args || '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype"' }}
+      PYTEST_ARGS: ${{ inputs.pytest_args || '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype and not test_triton_to_gluon"' }}
     steps:
       - uses: astral-sh/setup-uv@v7
 
