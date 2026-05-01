@@ -19,7 +19,7 @@ on:
         description: Python minor version
         required: true
         type: string
-        default: '12'
+        default: '13'
       pytest_args:
         description: pytest args
         required: true
