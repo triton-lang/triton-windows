@@ -49,9 +49,13 @@ add_triton_library(TritonGPUTransforms
   TritonTransforms
   TritonGPUIR
   TritonNvidiaGPUIR
-  NVWSIR
-  NVWSTransforms
   TritonToTritonGPU
   TritonInstrumentIR
   MLIRTransformUtils
 )
+
+# NVWSIR and NVWSTransforms are only available when the NVIDIA backend is built
+if(TRITON_BUILD_NVIDIA_BACKEND)
+  target_link_libraries(TritonGPUTransforms PUBLIC NVWSIR NVWSTransforms)
+  target_compile_definitions(TritonGPUTransforms PRIVATE TRITON_BUILD_NVIDIA_BACKEND)
+endif()

@@ -4,7 +4,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
+#ifdef TRITON_BUILD_NVIDIA_BACKEND
 #include "third_party/nvidia/include/Dialect/NVWS/Transforms/Passes.h"
+#endif
 #include "triton/Dialect/TritonGPU/Transforms/Passes.h"
 #include "triton/Dialect/TritonGPU/Transforms/PipeliningUtility.h"
 #include "triton/Dialect/TritonGPU/Transforms/Schedule.h"
@@ -48,6 +50,13 @@ struct AutomaticWarpSpecialization
           AutomaticWarpSpecialization> {
   using TritonGPUAutomaticWarpSpecializationBase::
       TritonGPUAutomaticWarpSpecializationBase;
+
+  void getDependentDialects(mlir::DialectRegistry &registry) const override {
+    TritonGPUAutomaticWarpSpecializationBase::getDependentDialects(registry);
+#ifdef TRITON_BUILD_NVIDIA_BACKEND
+    registry.insert<nvws::NVWSDialect>();
+#endif
+  }
 
   void runOnOperation() override;
 };
@@ -100,17 +109,23 @@ void AutomaticWarpSpecialization::runOnOperation() {
   };
 
   addPassWithPartitionVerifier(createTritonGPUPartitionScheduling());
+#ifdef TRITON_BUILD_NVIDIA_BACKEND
   addPassWithPartitionVerifier(createNVWSHoistTmemStore());
   addPassWithPartitionVerifier(createNVWSInsertAref());
   addPassWithPartitionVerifier(createNVWSInsertTmemAref());
+#endif
   // `int-range-optimizations` and SCCP are good at cleaning up loop arithmetic.
   // FIXME: Re-enable integer range analysis once it is fixed.
   // pm.addPass(arith::createIntRangeOptimizationsPass());
   addPassWithPartitionVerifier(createSCCPPass());
   addPassWithPartitionVerifier(createCSEPass());
+#ifdef TRITON_BUILD_NVIDIA_BACKEND
   addPassWithPartitionVerifier(createNVWSLowerAref({numStages}));
+#endif
   pm.addPass(createTritonGPUPartitionLoops());
+#ifdef TRITON_BUILD_NVIDIA_BACKEND
   pm.addPass(createNVWSLowerWarpGroup());
+#endif
   pm.addPass(createTritonGPUScheduleLoops());
   if (failed(runPipeline(pm, getOperation())))
     return signalPassFailure();

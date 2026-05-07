@@ -7,8 +7,10 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/RegionUtils.h"
+#ifdef TRITON_BUILD_NVIDIA_BACKEND
 #include "nvidia/include/Dialect/NVWS/IR/Dialect.h"
 #include "nvidia/include/Dialect/NVWS/Transforms/Passes.h"
+#endif
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
 #include "triton/Dialect/TritonGPU/Transforms/Partition.h"
 #include "triton/Dialect/TritonGPU/Transforms/PipeliningUtility.h"
@@ -351,6 +353,11 @@ void cloneOpsInBlock(Block *block, SmallVector<WarpGroupBuilder> &builders,
 
 } // namespace
 
+#ifndef TRITON_BUILD_NVIDIA_BACKEND
+LogicalResult triton::gpu::partitionLoop(scf::ForOp loop) {
+  return success();
+}
+#else
 LogicalResult triton::gpu::partitionLoop(scf::ForOp loop) {
   FailureOr<PartitionSet> partitionsOr = PartitionSet::fromLoop(loop);
   if (failed(partitionsOr))
@@ -511,6 +518,7 @@ LogicalResult triton::gpu::partitionLoop(scf::ForOp loop) {
 
   return success();
 }
+#endif // TRITON_BUILD_NVIDIA_BACKEND
 
 //===----------------------------------------------------------------------===//
 // Pass Definition
@@ -525,6 +533,13 @@ namespace {
 struct PartitionLoops
     : triton::gpu::impl::TritonGPUPartitionLoopsBase<PartitionLoops> {
   using TritonGPUPartitionLoopsBase::TritonGPUPartitionLoopsBase;
+
+  void getDependentDialects(mlir::DialectRegistry &registry) const override {
+    TritonGPUPartitionLoopsBase::getDependentDialects(registry);
+#ifdef TRITON_BUILD_NVIDIA_BACKEND
+    registry.insert<nvws::NVWSDialect>();
+#endif
+  }
 
   void runOnOperation() override;
 };

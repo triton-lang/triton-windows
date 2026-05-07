@@ -21,6 +21,8 @@ option(TRITON_BUILD_BINARY "Build C++ Triton binaries" ON)
 option(TRITON_BUILD_PYTHON_MODULE "Build Python Triton bindings" OFF)
 option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" ON)
 option(TRITON_BUILD_GSAN "Build GSan" OFF)
+option(TRITON_BUILD_NVIDIA_BACKEND "Build NVIDIA backend" ON)
+option(TRITON_BUILD_AMD_BACKEND "Build AMD backend" ON)
 option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" ON)
 option(TRITON_BUILD_WITH_CCACHE "Build with ccache (if available)" ON)
 option(TRITON_OFFLINE_BUILD "Build without downloading dependencies" OFF)
@@ -239,14 +241,18 @@ include(AddMLIR)
 # Utilities
 function(add_triton_object name)
   cmake_parse_arguments(ARG "" "" "DEPENDS;LINK_LIBS" ${ARGN})
-  add_library(${name} OBJECT)
-  target_sources(${name}
-    PRIVATE ${ARG_UNPARSED_ARGUMENTS}
-    INTERFACE $<TARGET_OBJECTS:${name}>
-  )
-
-
-  # add_library(${name} OBJECT ${ARG_UNPARSED_ARGUMENTS})
+  if(WIN32)
+    # On Windows with MSVC, OBJECT libraries don't produce .lib files but CMake
+    # generates bare .lib references for them in link commands, causing LNK1181.
+    # Use STATIC libraries instead so CMake generates full-path .lib references.
+    add_library(${name} STATIC ${ARG_UNPARSED_ARGUMENTS})
+  else()
+    add_library(${name} OBJECT)
+    target_sources(${name}
+      PRIVATE ${ARG_UNPARSED_ARGUMENTS}
+      INTERFACE $<TARGET_OBJECTS:${name}>
+    )
+  endif()
   if(ARG_DEPENDS)
     add_dependencies(${name} ${ARG_DEPENDS})
   endif()
@@ -297,6 +303,38 @@ include_directories(${PROJECT_BINARY_DIR}/third_party) # Tablegen'd files
 # link_directories(${LLVM_LIBRARY_DIR})
 add_subdirectory(include)
 add_subdirectory(lib)
+
+# Always generate tablegen headers for NVIDIA/AMD dialects even when backends
+# are disabled. Core triton code includes NVWS/NVGPU/AMD dialect headers which
+# reference tablegen-generated .h.inc files.
+if(NOT "nvidia" IN_LIST TRITON_CODEGEN_BACKENDS)
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/nvidia/include/CMakeLists.txt")
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/nvidia/include)
+    include_directories(${CMAKE_CURRENT_BINARY_DIR}/third_party/nvidia/include)
+    add_subdirectory(third_party/nvidia/include)
+  endif()
+endif()
+if(NOT "amd" IN_LIST TRITON_CODEGEN_BACKENDS)
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/amd/include/CMakeLists.txt")
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/amd/include)
+    include_directories(${CMAKE_CURRENT_BINARY_DIR}/third_party/amd/include)
+    add_subdirectory(third_party/amd/include)
+  endif()
+endif()
+
+# Ensure tablegen targets run before compilation targets that need them.
+foreach(_tg
+    NVGPUTableGen NVGPUAttrDefsIncGen
+    NVWSTableGen NVWSAttrDefsIncGen NVWSTransformsIncGen
+    NVGPUConversionPassIncGen TritonNVIDIAGPUConversionPassIncGen)
+  if(TARGET ${_tg})
+    foreach(_target TritonGPUTransforms TritonNvidiaGPUTransforms TritonInstrumentToLLVM)
+      if(TARGET ${_target})
+        add_dependencies(${_target} ${_tg})
+      endif()
+    endforeach()
+  endif()
+endforeach()
 
 # TODO: Figure out which target is sufficient to fix errors; triton is
 # apparently not enough. Currently set linking libstdc++fs for all targets
@@ -356,10 +394,9 @@ if(TRITON_BUILD_PYTHON_MODULE)
     ${triton_libs}
     ${triton_plugins}
 
-    # mlir
-    MLIRNVVMDialect
-    MLIRNVVMToLLVMIRTranslation
-    MLIRGPUToNVVMTransforms
+    # mlir core (always needed)
+    MLIRGPUToGPURuntimeTransforms
+    MLIRGPUTransforms
     MLIRIR
     MLIRControlFlowToLLVM
     MLIRPass
@@ -368,26 +405,42 @@ if(TRITON_BUILD_PYTHON_MODULE)
     MLIRSupport
     MLIRTargetLLVMIRExport
     MLIRMathToLLVM
-    MLIRROCDLToLLVMIRTranslation
     MLIRGPUDialect
     MLIRSCFToControlFlow
     MLIRIndexToLLVM
-    MLIRGPUToROCDLTransforms
     MLIRUBToLLVM
+    MLIRPluginsLib
 
-    # LLVM
+    # LLVM core
     LLVMPasses
-    LLVMNVPTXCodeGen
-    # LLVMNVPTXAsmPrinter
-    LLVMAMDGPUCodeGen
-    LLVMAMDGPUAsmParser
 
     Python3::Module
     pybind11::headers
-
   )
+
+  # NVIDIA-specific libs (only when NVIDIA backend is enabled)
+  if(TRITON_BUILD_NVIDIA_BACKEND)
+    list(APPEND TRITON_LIBRARIES
+      MLIRNVVMDialect
+      MLIRNVVMToLLVMIRTranslation
+      MLIRGPUToNVVMTransforms
+      LLVMNVPTXCodeGen
+      # LLVMNVPTXAsmPrinter
+    )
+  endif()
+
+  # AMD-specific libs (only when AMD backend is enabled)
+  if(TRITON_BUILD_AMD_BACKEND)
+    list(APPEND TRITON_LIBRARIES
+      MLIRAMDGPUDialect
+      MLIRROCDLToLLVMIRTranslation
+      MLIRGPUToROCDLTransforms
+      LLVMAMDGPUCodeGen
+      LLVMAMDGPUAsmParser
+    )
+  endif()
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR # Linux arm64
-     CMAKE_SYSTEM_PROCESSOR MATCHES "arm64" OR # macOS arm64
+     CMAKE_SYSTEM_PROCESSOR MATCHES "[Aa][Rr][Mm]64" OR # macOS/Windows arm64
      CMAKE_OSX_ARCHITECTURES MATCHES "arm64")  # also macOS arm64
       list(APPEND TRITON_LIBRARIES
           LLVMAArch64CodeGen
@@ -446,6 +499,25 @@ if(TRITON_BUILD_PYTHON_MODULE)
   # targets that link against libtriton do not accidentally link in their own
   # copies of core Triton code and LLVM.
   set_target_properties(triton PROPERTIES INTERFACE_LINK_LIBRARIES "")
+
+  if(TRITON_BUILD_NVIDIA_BACKEND)
+    target_compile_definitions(triton PRIVATE TRITON_BUILD_NVIDIA_BACKEND)
+  endif()
+  if(TRITON_BUILD_AMD_BACKEND)
+    target_compile_definitions(triton PRIVATE TRITON_BUILD_AMD_BACKEND)
+  endif()
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR
+     CMAKE_SYSTEM_PROCESSOR MATCHES "[Aa][Rr][Mm]64" OR
+     CMAKE_OSX_ARCHITECTURES MATCHES "arm64")
+    target_compile_definitions(triton PRIVATE TRITON_NATIVE_TARGET_AARCH64)
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64")
+    target_compile_definitions(triton PRIVATE TRITON_NATIVE_TARGET_X86)
+  endif()
+  find_library(LLVM_PLUGINS_LIB_PATH LLVMPluginsLib HINTS ${LLVM_LIBRARY_DIR})
+  if(LLVM_PLUGINS_LIB_PATH)
+    target_link_libraries(triton PRIVATE LLVMPluginsLib)
+    target_compile_definitions(triton PRIVATE LLVM_HAS_PASS_PLUGIN)
+  endif()
 
   if(WIN32)
     target_link_libraries(triton PRIVATE ${CMAKE_DL_LIBS} dlfcn)

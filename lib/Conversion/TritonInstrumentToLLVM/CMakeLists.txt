@@ -9,5 +9,9 @@ add_triton_library(TritonInstrumentToLLVM
     TritonGPUIR
     TritonInstrumentIR
     TritonNvidiaGPUIR
-    NVGPUIR
 )
+
+# NVGPUIR is only available when the NVIDIA backend is built
+if(TRITON_BUILD_NVIDIA_BACKEND)
+  target_link_libraries(TritonInstrumentToLLVM PUBLIC NVGPUIR)
+endif()
