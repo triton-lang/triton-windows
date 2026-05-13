@@ -4,11 +4,9 @@
 #include "triton/Tools/Sys/GetEnv.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
-#ifdef TRITON_BUILD_AMD_BACKEND
 #include "llvm/CodeGen/MIRParser/MIRParser.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#endif
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -22,9 +20,7 @@
 #include "llvm/Passes/OptimizationLevel.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
-#ifdef LLVM_HAS_PASS_PLUGIN
 #include "llvm/Plugins/PassPlugin.h"
-#endif
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Parallel.h"
 #include "llvm/Support/Signals.h"
@@ -411,7 +407,6 @@ std::string translateLLVMIRToASM(llvm::Module &module,
   return result;
 }
 
-#ifdef TRITON_BUILD_AMD_BACKEND
 std::string
 translateMIRToASM(const std::string &mirPath, const std::string &triple,
                   const std::string &proc, const std::string &features,
@@ -511,7 +506,6 @@ translateMIRToASM(const std::string &mirPath, const std::string &triple,
   // LLVM options are automatically restored when scope exits via RAII
   return result;
 }
-#endif // TRITON_BUILD_AMD_BACKEND
 
 using ret = py::return_value_policy;
 
@@ -723,7 +717,6 @@ void init_triton_llvm(py::module &&m) {
                        std::nullopt, instrCbPtr);
 
         if (!pluginFile.empty()) {
-#ifdef LLVM_HAS_PASS_PLUGIN
           // TODO: Add some logging here that we inserted a pass into the LLVM
           // pass pipeline
           auto passPlugin = llvm::PassPlugin::Load(pluginFile);
@@ -734,11 +727,6 @@ void init_triton_llvm(py::module &&m) {
             throw std::runtime_error(ErrMsg);
           }
           passPlugin->registerPassBuilderCallbacks(pb);
-#else
-          throw std::runtime_error(
-              "LLVM pass plugins are not supported in this build "
-              "(LLVMPluginsLib not found)");
-#endif
         }
 
         pb.registerModuleAnalyses(mam);
@@ -854,7 +842,6 @@ void init_triton_llvm(py::module &&m) {
       },
       ret::take_ownership);
 
-#ifdef TRITON_BUILD_AMD_BACKEND
   m.def(
       "translate_mir_to_asm",
       [](std::string mirPath, std::string triple, std::string proc,
@@ -876,40 +863,15 @@ void init_triton_llvm(py::module &&m) {
       py::arg("features"), py::arg("flags"), py::arg("enable_fp_fusion"),
       py::arg("isObject"), py::arg("enableMISched") = false,
       ret::take_ownership);
-#endif // TRITON_BUILD_AMD_BACKEND
 
   m.def("init_targets", []() {
     static std::once_flag init_flag;
     std::call_once(init_flag, []() {
-      // Initialize only the targets that are actually built.
-      // Using InitializeAll* would pull in X86/AMDGPU/NVPTX symbols that
-      // may not be present in the LLVM build (e.g. AArch64-only builds).
-#ifdef TRITON_BUILD_NVIDIA_BACKEND
-      LLVMInitializeNVPTXTargetInfo();
-      LLVMInitializeNVPTXTarget();
-      LLVMInitializeNVPTXTargetMC();
-      LLVMInitializeNVPTXAsmPrinter();
-#endif
-#ifdef TRITON_BUILD_AMD_BACKEND
-      LLVMInitializeAMDGPUTargetInfo();
-      LLVMInitializeAMDGPUTarget();
-      LLVMInitializeAMDGPUTargetMC();
-      LLVMInitializeAMDGPUAsmParser();
-      LLVMInitializeAMDGPUAsmPrinter();
-#endif
-#ifdef TRITON_NATIVE_TARGET_AARCH64
-      LLVMInitializeAArch64TargetInfo();
-      LLVMInitializeAArch64Target();
-      LLVMInitializeAArch64TargetMC();
-      LLVMInitializeAArch64AsmParser();
-      LLVMInitializeAArch64AsmPrinter();
-#elif defined(TRITON_NATIVE_TARGET_X86)
-      LLVMInitializeX86TargetInfo();
-      LLVMInitializeX86Target();
-      LLVMInitializeX86TargetMC();
-      LLVMInitializeX86AsmParser();
-      LLVMInitializeX86AsmPrinter();
-#endif
+      llvm::InitializeAllTargetInfos();
+      llvm::InitializeAllTargets();
+      llvm::InitializeAllTargetMCs();
+      llvm::InitializeAllAsmParsers();
+      llvm::InitializeAllAsmPrinters();
     });
     // Disable LLVM's internal parallelism. Triton kernels produce small LLVM
     // modules where pass-level parallelism is not beneficial, and LLVM's global

@@ -245,7 +245,7 @@ def is_linux_os(os_id):
 def get_llvm_package_info(helper_args: BuildHelperArgs):
     system = platform.system()
     try:
-        arch = {"x86_64": "x64", "AMD64": "x64", "arm64": "arm64", "ARM64": "arm64", "aarch64": "arm64"}[platform.machine()]
+        arch = {"x86_64": "x64", "AMD64": "x64", "arm64": "arm64", "aarch64": "arm64"}[platform.machine()]
     except KeyError:
         arch = platform.machine()
     if helper_args.llvm_system_suffix:
@@ -328,10 +328,7 @@ def _get_thirdparty_package_cmake_vars(package: Package, helper_args: BuildHelpe
         # write version url to package_dir
         with open(os.path.join(package_dir, "version.txt"), "w") as file:
             file.write(package.url)
-    # Only create the stable symlink when using a downloaded package (not a user-provided syspath).
-    # On Windows, symlink creation requires Developer Mode or admin rights, so skip it when
-    # LLVM_SYSPATH is explicitly set by the user.
-    if package.sym_name is not None and not input_defined:
+    if package.sym_name is not None:
         sym_link_path = os.path.join(package_root_dir, package.sym_name)
         update_symlink(sym_link_path, package_dir)
 
@@ -434,30 +431,27 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
 
 
 def download_and_copy_dependencies(helper_args: BuildHelperArgs):
-    build_nvidia = _normalize_bool(os.getenv("TRITON_BUILD_NVIDIA_BACKEND", "ON"))
+    nvidia_version_path = os.path.join(get_base_dir(), "cmake", "nvidia-toolchain-version.json")
+    with open(nvidia_version_path, "r") as nvidia_version_file:
+        # parse this json file to get the version of the nvidia toolchain
+        nvidia_toolchain_version = json.load(nvidia_version_file)
 
-    if build_nvidia:
-        nvidia_version_path = os.path.join(get_base_dir(), "cmake", "nvidia-toolchain-version.json")
-        with open(nvidia_version_path, "r") as nvidia_version_file:
-            # parse this json file to get the version of the nvidia toolchain
-            nvidia_toolchain_version = json.load(nvidia_version_file)
+    exe_extension = sysconfig.get_config_var("EXE")
+    archive_extension = ".zip" if platform.system() == "Windows" else ".tar.xz"
+    download_and_copy(
+        name="nvidia/nvcc-" + nvidia_toolchain_version["ptxas"],
+        src_func=lambda system, arch, version: f"cuda_nvcc-{system}-{arch}-{version}-archive/bin/ptxas{exe_extension}",
+        dst_path=f"third_party/nvidia/backend/bin/ptxas{exe_extension}",
+        override_path=helper_args.ptxas_path,
+        version=nvidia_toolchain_version["ptxas"],
+        url_func=lambda system, arch, version:
+        f"https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvcc/{system}-{arch}/cuda_nvcc-{system}-{arch}-{version}-archive{archive_extension}",
+        helper_args=helper_args,
+    )
+    # In triton-windows, we do not download a separate ptxas for blackwell
 
-        exe_extension = sysconfig.get_config_var("EXE")
-        archive_extension = ".zip" if platform.system() == "Windows" else ".tar.xz"
-        download_and_copy(
-            name="nvidia/nvcc-" + nvidia_toolchain_version["ptxas"],
-            src_func=lambda system, arch, version: f"cuda_nvcc-{system}-{arch}-{version}-archive/bin/ptxas{exe_extension}",
-            dst_path=f"third_party/nvidia/backend/bin/ptxas{exe_extension}",
-            override_path=helper_args.ptxas_path,
-            version=nvidia_toolchain_version["ptxas"],
-            url_func=lambda system, arch, version:
-            f"https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvcc/{system}-{arch}/cuda_nvcc-{system}-{arch}-{version}-archive{archive_extension}",
-            helper_args=helper_args,
-        )
-        # In triton-windows, we do not download a separate ptxas for blackwell
-
-    need_copy_all = (build_nvidia and (_normalize_bool(os.getenv("TRITON_BUILD_PROTON", "ON"))
-                     or _normalize_bool(os.getenv("TRITON_BUILD_GSAN", "OFF"))))
+    need_copy_all = (_normalize_bool(os.getenv("TRITON_BUILD_PROTON", "ON"))
+                     or _normalize_bool(os.getenv("TRITON_BUILD_GSAN", "OFF")))
     if need_copy_all:
         crt = "crt" if int(nvidia_toolchain_version["cudacrt"].split(".")[0]) >= 13 else "nvcc"
         download_and_copy(
@@ -510,7 +504,7 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
             f"https://developer.download.nvidia.com/compute/cuda/redist/cuda_cupti/{system}-{arch}/cuda_cupti-{system}-{arch}-{version}-archive{archive_extension}",
             helper_args=helper_args,
         )
-    elif build_nvidia:
+    else:
         download_and_copy(
             name="nvidia/cudart-" + nvidia_toolchain_version["cudart"],
             src_func=lambda system, arch, version: f"cuda_cudart-{system}-{arch}-{version}-archive/include/cuda.h",
@@ -532,7 +526,6 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
             helper_args=helper_args,
         )
 
-    # TCC is always needed on Windows for the interpreter runtime
     download_and_copy(
         name="tcc",
         src_func=lambda system, arch, version: ".",

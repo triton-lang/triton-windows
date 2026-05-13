@@ -107,15 +107,12 @@ def TritonGPUAutomaticWarpSpecialization : Pass<"tritongpu-automatic-warp-specia
     partition regions.
   }];
 
-  // Note: NVWSDialect is conditionally loaded at runtime via
-  // getDependentDialects() override in AutomaticWarpSpecialization.cpp when
-  // TRITON_BUILD_NVIDIA_BACKEND is enabled. It is omitted here to avoid
-  // a linker error when building without the NVIDIA backend.
   let dependentDialects = [
     "mlir::triton::gpu::TritonGPUDialect",
     "mlir::scf::SCFDialect",
     "mlir::arith::ArithDialect",
-    "mlir::triton::nvidia_gpu::TritonNvidiaGPUDialect"
+    "mlir::triton::nvidia_gpu::TritonNvidiaGPUDialect",
+    "triton::nvws::NVWSDialect"
   ];
 
   let options = [
@@ -134,13 +131,9 @@ def TritonGPUPartitionLoops : Pass<"tritongpu-partition-loops", "mlir::ModuleOp"
     between any of the partitions.
   }];
 
-  // Note: NVWSDialect is conditionally loaded at runtime via
-  // getDependentDialects() override in PartitionLoops.cpp when
-  // TRITON_BUILD_NVIDIA_BACKEND is enabled. It is omitted here to avoid
-  // referencing triton::nvws in the tablegen-generated base class when
-  // building without the NVIDIA backend.
   let dependentDialects = [
-    "mlir::triton::gpu::TritonGPUDialect"
+    "mlir::triton::gpu::TritonGPUDialect",
+    "triton::nvws::NVWSDialect"
   ];
 }
 

@@ -348,8 +348,6 @@ class CMakeBuild(build_ext):
         passthrough_args = [
             "TRITON_BUILD_BINARY",
             "TRITON_BUILD_PROTON",
-            "TRITON_BUILD_NVIDIA_BACKEND",
-            "TRITON_BUILD_AMD_BACKEND",
             "TRITON_BUILD_GSAN",
             "TRITON_BUILD_WITH_CCACHE",
             "TRITON_PARALLEL_LINK_JOBS",
@@ -385,20 +383,12 @@ class CMakeBuild(build_ext):
         env = os.environ.copy()
         cmake_dir = get_cmake_dir()
         subprocess.check_call(["cmake", self.base_dir] + cmake_args, cwd=cmake_dir, env=env)
-        try:
-            update_symlink(Path(self.base_dir) / "compile_commands.json", cmake_dir / "compile_commands.json")
-        except OSError as e:
-            print(f"Warning: Could not create compile_commands.json symlink: {e}", file=sys.stderr)
+        update_symlink(Path(self.base_dir) / "compile_commands.json", cmake_dir / "compile_commands.json")
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=cmake_dir)
         subprocess.check_call(["cmake", "--build", ".", "--target", "mlir-doc"], cwd=cmake_dir)
 
 
-_active_backends = []
-if check_env_flag("TRITON_BUILD_NVIDIA_BACKEND", "ON"):
-    _active_backends.append("nvidia")
-if check_env_flag("TRITON_BUILD_AMD_BACKEND", "ON"):
-    _active_backends.append("amd")
-backends = [*BackendInstaller.copy(_active_backends), *BackendInstaller.copy_externals()]
+backends = [*BackendInstaller.copy(["nvidia", "amd"]), *BackendInstaller.copy_externals()]
 
 
 def get_package_dirs():

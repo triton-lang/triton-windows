@@ -1,8 +1,5 @@
 from triton.runtime.jit import constexpr_function
-try:
-    from triton._C.libtriton.gluon_ir import get_amd_mfma_scale_layout as _get_mfma_scale_layout
-except ImportError:
-    _get_mfma_scale_layout = None
+from triton._C.libtriton.gluon_ir import get_amd_mfma_scale_layout as _get_mfma_scale_layout
 
 from ..._core import builtin, int8, uint8, _unwrap_if_constexpr
 from ..._layouts import DotOperandLayout

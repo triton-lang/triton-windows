@@ -1,8 +1,5 @@
 from triton.runtime.jit import constexpr_function
-try:
-    from triton._C.libtriton.gluon_ir import get_amd_wmma_scale_layout as _get_wmma_scale_layout
-except ImportError:
-    _get_wmma_scale_layout = None
+from triton._C.libtriton.gluon_ir import get_amd_wmma_scale_layout as _get_wmma_scale_layout
 
 from ..._core import builtin, int8, uint8, int32, float8e4nv, tensor, _unwrap_if_constexpr
 from .._ops import _wmma, _verify_wmma, _mma_scaled, _scaled_upcast
