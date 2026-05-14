@@ -11,7 +11,7 @@ Based on [andreigh](https://github.com/andreigh/triton/tree/windows), [wkpark](h
 * Nvidia GPU is supported
     * For AMD GPU, we're beginning to add support in this repo, see https://github.com/triton-lang/triton-windows/issues/2
     * For older AMD GPUs that are not supported by TheRock, [ComfyUI-Zluda](https://github.com/patientx/ComfyUI-Zluda) has a lot of information. Despite the name, they have information for both ZLUDA and ROCm. They use https://github.com/lshqqytiger/triton , which is based on https://github.com/Repeerc/triton-amdgpu-windows
-* On free-threaded Python (Python 3.13t/3.14t), it seems to work with MSVC and clang-cl, but not with the bundled TinyCC
+* On free-threaded Python (Python 3.13t/3.14t), it works with MSVC and clang-cl, but not with the bundled TinyCC
 * Proton and GSan are not actively maintained in this repo. If you want to try them, you can build from source
 
 ## Installation
@@ -96,6 +96,7 @@ Although technically Triton can be used alone, in the following let's assume you
 | 2.9 | 3.5 |
 | 2.10 | 3.6 |
 | 2.11 | 3.6 |
+| 2.12 | 3.7 |
 
 PyTorch 2.3 and older are not supported in this repo.
 
@@ -114,7 +115,7 @@ CUDA toolchain minor version bundled in each Triton minor version:
 | Triton | CUDA |
 | --- | --- |
 | 3.1 .. 3.2 | 12.4 |
-| 3.3 .. 3.6 | 12.8 |
+| 3.3 .. 3.7 | 12.8 |
 
 See [nvidia-toolchain-version.json](https://github.com/triton-lang/triton/blob/main/cmake/nvidia-toolchain-version.json) for the detailed versions.
 
@@ -231,13 +232,13 @@ If you've installed an old version of `triton`, first uninstall it:
 ```pwsh
 pip uninstall triton
 ```
-Now you can install `triton-windows 3.6`, or upgrade the already installed version. To prevent breaking with your installed PyTorch when a new version of Triton is released in future, you can limit the version to be < 3.7:
+Now you can install `triton-windows 3.7`, or upgrade the already installed version. To prevent breaking with your installed PyTorch when a new version of Triton is released in future, you can limit the version to be < 3.8:
 ```pwsh
-pip install -U "triton-windows<3.7"
+pip install -U "triton-windows<3.8"
 ```
 Note again that if you're using the embeded Python, then instead of directly run `pip`, you need:
 ```pwsh
-C:\path\to\python_embeded\python.exe -m pip install -U "triton-windows<3.7"
+C:\path\to\python_embeded\python.exe -m pip install -U "triton-windows<3.8"
 ```
 Or if you want `triton-windows 3.2`, then run:
 ```pwsh

@@ -119,7 +119,7 @@ I recommend to use ccache if you installed it:
 $Env:TRITON_BUILD_WITH_CCACHE = "1"
 ```
 
-Clone this repo, checkout `release/3.6.x-windows` branch, make an editable build using pip:
+Clone this repo, checkout `release/3.7.x-windows` branch, make an editable build using pip:
 ```pwsh
 pip install --no-build-isolation --verbose -e .
 # Or `pip install --no-build-isolation --verbose -e python` for Triton <= 3.3
