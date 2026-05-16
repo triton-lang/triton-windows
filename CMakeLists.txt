@@ -242,11 +242,20 @@ include(AddMLIR)
 
 function(add_triton_object name)
   cmake_parse_arguments(ARG "" "" "DEPENDS;LINK_LIBS" ${ARGN})
-  add_library(${name} OBJECT)
-  target_sources(${name}
-    PRIVATE ${ARG_UNPARSED_ARGUMENTS}
-    INTERFACE $<TARGET_OBJECTS:${name}>
-  )
+
+  if(WIN32)
+    # On Windows with MSVC, OBJECT libraries don't produce .lib files but CMake
+    # generates bare .lib references for them in link commands, causing LNK1181.
+    # Use STATIC libraries instead so CMake generates full-path .lib references.
+    add_library(${name} STATIC ${ARG_UNPARSED_ARGUMENTS})
+  else()
+    add_library(${name} OBJECT)
+    target_sources(${name}
+      PRIVATE ${ARG_UNPARSED_ARGUMENTS}
+      INTERFACE $<TARGET_OBJECTS:${name}>
+    )
+  endif()
+
   if(ARG_DEPENDS)
     add_dependencies(${name} ${ARG_DEPENDS})
   endif()
@@ -386,7 +395,7 @@ if(TRITON_BUILD_PYTHON_MODULE)
     pybind11::headers
   )
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR # Linux arm64
-     CMAKE_SYSTEM_PROCESSOR MATCHES "arm64" OR # macOS arm64
+     CMAKE_SYSTEM_PROCESSOR MATCHES "[Aa][Rr][Mm]64" OR # macOS/Windows arm64
      CMAKE_OSX_ARCHITECTURES MATCHES "arm64")  # also macOS arm64
       list(APPEND TRITON_LIBRARIES
           LLVMAArch64CodeGen
