@@ -6724,6 +6724,8 @@ def test_jit_function_arg(device):
 
 @pytest.mark.interpreter
 def test_zero_strided_tensors(device):
+    if not is_cuda():
+        pytest.skip("test_zero_strided_tensors requires CUDA")
 
     @triton.jit
     def _simple_add(
