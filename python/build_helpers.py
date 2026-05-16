@@ -323,7 +323,8 @@ def is_linux_os(os_id):
 def get_llvm_package_info(helper_args: BuildHelperArgs):
     system = platform.system()
     try:
-        arch = {"x86_64": "x64", "AMD64": "x64", "arm64": "arm64", "aarch64": "arm64"}[platform.machine()]
+        arch = {"x86_64": "x64", "AMD64": "x64", "ARM64": "arm64", "arm64": "arm64", "aarch64":
+                "arm64"}[platform.machine()]
     except KeyError:
         arch = platform.machine()
     if helper_args.llvm_system_suffix:
@@ -362,6 +363,11 @@ def get_llvm_package_info(helper_args: BuildHelperArgs):
     llvm_info_path = os.path.join(get_base_dir(), "cmake", "llvm-info.json")
     with open(llvm_info_path, "r") as llvm_info_file:
         llvm_info = json.load(llvm_info_file)
+    if system_suffix not in llvm_info["sha256sum"]:
+        print(
+            f"LLVM pre-compiled image is not available for {system_suffix} in {llvm_info_path}. Proceeding with user-configured LLVM from source build."
+        )
+        return Package("llvm", "LLVM-C.lib", "", "LLVM_INCLUDE_DIRS", "LLVM_LIBRARY_DIR", "LLVM_SYSPATH")
     rev = llvm_info["llvm_hash"][:8]
     build_number = llvm_info["build_number"]
     name = f"llvm-{rev}-{system_suffix}-{build_number}"
@@ -474,7 +480,9 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
     system = platform.system()
     arch = platform.machine()
     # NOTE: This might be wrong for jetson if both grace chips and jetson chips return aarch64
-    arch = {"AMD64": "x86_64", "arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
+    # On Windows ARM64, platform.machine() returns "ARM64". Map it to "x86_64" so we
+    # download Windows x64 NVIDIA headers, which are compatible for compilation on ARM64.
+    arch = {"AMD64": "x86_64", "ARM64": "x86_64", "arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
     supported = {"Linux": "linux", "Darwin": "linux", "Windows": "windows"}
     url = url_func(supported[system], arch, version)
     src_path = src_func(supported[system], arch, version)
