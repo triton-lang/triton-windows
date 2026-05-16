@@ -21,21 +21,31 @@ struct AllocateAMDGPUSharedMemory
     : public mlir::triton::impl::AllocateAMDGPUSharedMemoryBase<
           AllocateAMDGPUSharedMemory> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AllocateAMDGPUSharedMemory)
+  AllocateAMDGPUSharedMemory(StringRef arch) { this->arch = arch.str(); }
+
   void runOnOperation() override {
     ModuleOp mod = getOperation();
 
+    std::string archGenerationName = this->arch;
+    AMD::TargetInfo targetInfo(archGenerationName);
     // Get partition size from target info
-    size_t partitionSize = 0;
-    if (auto arch = getAMDArch(mod)) {
-      AMD::TargetInfo targetInfo(arch->str());
-      partitionSize = targetInfo.getSharedMemoryPartitionSize();
-    }
+    size_t partitionSize = targetInfo.getSharedMemoryPartitionSize();
 
-    ModuleAllocation allocation(mod, AMDAllocationAnalysisScratchSizeFn,
-                                partitionSize);
+    auto allocationFn = [&targetInfo](Operation *op) {
+      return AMDAllocationAnalysisScratchSizeFn(op, targetInfo);
+    };
+
+    ModuleAllocation allocation(mod, allocationFn, partitionSize);
 
     mlir::triton::gpu::attachAllocationSizeAndOffsetAttr(mod, allocation);
   }
 };
 
 } // namespace
+
+namespace mlir::triton {
+std::unique_ptr<OperationPass<ModuleOp>>
+createAllocateAMDGPUSharedMemoryPass(StringRef arch) {
+  return std::make_unique<AllocateAMDGPUSharedMemory>(arch);
+}
+} // namespace mlir::triton

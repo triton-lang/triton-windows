@@ -411,7 +411,7 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
     # NOTE: This might be wrong for jetson if both grace chips and jetson chips return aarch64
     # On Windows ARM64, platform.machine() returns "ARM64". Map it to "x86_64" so we
     # download Windows x64 NVIDIA headers, which are compatible for compilation on ARM64.
-    arch = {"AMD64": "x86_64", "arm64": "sbsa", "aarch64": "sbsa", "ARM64": "x86_64"}.get(arch, arch)
+    arch = {"AMD64": "x86_64", "ARM64": "x86_64", "arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
     supported = {"Linux": "linux", "Darwin": "linux", "Windows": "windows"}
     url = url_func(supported[system], arch, version)
     src_path = src_func(supported[system], arch, version)

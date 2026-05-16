@@ -82,7 +82,6 @@ class CombineTensorSelectAndIfPass
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(CombineTensorSelectAndIfPass)
   void runOnOperation() override {
-    MLIRContext *context = &getContext();
     ModuleOp m = getOperation();
     canonicalizeSelectUsersInSCFIf(m);
 

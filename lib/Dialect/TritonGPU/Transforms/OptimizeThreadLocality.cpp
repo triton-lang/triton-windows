@@ -311,8 +311,6 @@ public:
       auto srcEncoding = srcType.getEncoding();
       assert(isa<triton::gpu::BlockedEncodingAttr>(srcEncoding) &&
              "Thread locality optimization only supports blocked encoding");
-      auto elemsPerThread =
-          triton::gpu::getElemsPerThread(srcType)[reduce.getAxis()];
       auto rank = srcShape.size();
       // create new layouts
       auto blocked3d = getThreadLocalityOptimizedEncoding(reduce);
@@ -357,8 +355,8 @@ public:
       // create new accum update
       auto newUpdate = createUpdate(builder, newLoop, newReduce, oldUpdate);
       // create new yield
-      auto newYield = createYield(builder, newLoop, oldYield,
-                                  newUpdate->getResult(0), blockArgNum);
+      createYield(builder, newLoop, oldYield, newUpdate->getResult(0),
+                  blockArgNum);
       // create post loop reduction on the original reduce axis
       auto newReduce2 = createPostLoopReduce(builder, newLoop, reduce);
       // add convert_layout to get back to original layout, the result layout
