@@ -209,7 +209,10 @@ def update_symlink(link_path, source_path):
 
     print(f"creating symlink: {link_path} -> {source_path}", file=sys.stderr)
     link_path.absolute().parent.mkdir(parents=True, exist_ok=True)  # Ensure link's parent directory exists
-    link_path.symlink_to(source_path.absolute(), target_is_directory=True)
+    try:
+        link_path.symlink_to(source_path.absolute(), target_is_directory=True)
+    except OSError as e:
+        print(f"Warning: Could not create symlink: {e}", file=sys.stderr)
 
 
 # --- third party packages -----
@@ -406,7 +409,9 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
     system = platform.system()
     arch = platform.machine()
     # NOTE: This might be wrong for jetson if both grace chips and jetson chips return aarch64
-    arch = {"AMD64": "x86_64", "arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
+    # On Windows ARM64, platform.machine() returns "ARM64". Map it to "x86_64" so we
+    # download Windows x64 NVIDIA headers, which are compatible for compilation on ARM64.
+    arch = {"AMD64": "x86_64", "ARM64": "x86_64", "arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
     supported = {"Linux": "linux", "Darwin": "linux", "Windows": "windows"}
     url = url_func(supported[system], arch, version)
     src_path = src_func(supported[system], arch, version)
