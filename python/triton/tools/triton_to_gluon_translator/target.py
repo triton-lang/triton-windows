@@ -13,6 +13,8 @@ class TranslatorTarget(str, Enum):
 
     GENERIC = "generic"
     SM80 = "sm80"
+    SM86 = "sm86"
+    SM89 = "sm89"
     SM90 = "sm90"
     SM100 = "sm100"
     SM103 = "sm103"
@@ -43,6 +45,8 @@ class TranslatorTarget(str, Enum):
     def is_nvidia(self) -> bool:
         return self in (
             TranslatorTarget.SM80,
+            TranslatorTarget.SM86,
+            TranslatorTarget.SM89,
             TranslatorTarget.SM90,
             TranslatorTarget.SM100,
             TranslatorTarget.SM103,
@@ -63,9 +67,9 @@ class TranslatorTarget(str, Enum):
         if self.is_nvidia:
             if self in (TranslatorTarget.SM100, TranslatorTarget.SM103):
                 return f"{base}.blackwell_helpers"
-            if self in (TranslatorTarget.SM90):
+            if self == TranslatorTarget.SM90:
                 return f"{base}.hopper_helpers"
-            if self in (TranslatorTarget.SM80):
+            if self in (TranslatorTarget.SM80, TranslatorTarget.SM86, TranslatorTarget.SM89):
                 return f"{base}.nvidia_helpers"
 
         return f"{base}.common_helpers"
