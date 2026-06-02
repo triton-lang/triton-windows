@@ -79,12 +79,8 @@ def find_msvc_env() -> tuple[Optional[Path], Optional[str]]:
     return msvc_base_path, version
 
 
-def find_msvc_vswhere() -> tuple[Optional[Path], Optional[str]]:
-    vswhere_path = find_in_program_files(r"Microsoft Visual Studio\Installer\vswhere.exe")
-    if vswhere_path is None:
-        return None, None
-
-    command = [
+def vswhere_cmd(vswhere_path: Path, win11_sdk: bool) -> list[str]:
+    return [
         str(vswhere_path),
         "-prerelease",
         "-products",
@@ -92,15 +88,32 @@ def find_msvc_vswhere() -> tuple[Optional[Path], Optional[str]]:
         "-requires",
         "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
         "-requires",
-        "Microsoft.VisualStudio.Component.Windows10SDK",
+        # Windows11SDK has a version suffix like Microsoft.VisualStudio.Component.Windows11SDK.28000
+        "Microsoft.VisualStudio.Component.Windows11SDK*"
+        if win11_sdk else "Microsoft.VisualStudio.Component.Windows10SDK",
         "-latest",
         "-property",
         "installationPath",
     ]
+
+
+def find_msvc_vswhere() -> tuple[Optional[Path], Optional[str]]:
+    vswhere_path = find_in_program_files(r"Microsoft Visual Studio\Installer\vswhere.exe")
+    if vswhere_path is None:
+        return None, None
+
+    command = vswhere_cmd(vswhere_path, win11_sdk=True)
     try:
         output = subprocess.check_output(command, text=True).strip()
     except subprocess.CalledProcessError:
         return None, None
+
+    if not output:
+        command = vswhere_cmd(vswhere_path, win11_sdk=False)
+        try:
+            output = subprocess.check_output(command, text=True).strip()
+        except subprocess.CalledProcessError:
+            return None, None
 
     msvc_base_path = Path(output) / "VC" / "Tools" / "MSVC"
     if not msvc_base_path.exists():
@@ -407,7 +420,7 @@ def find_cuda() -> tuple[Optional[str], list[str], list[str]]:
     return None, [], []
 
 
-@functools.lru_cache
+@functools.cache
 def find_hip() -> tuple[Optional[str], list[str], list[str]]:
     """Find HIP SDK paths (bin, include dirs, lib dirs) from ROCm SDK wheels."""
     try:
