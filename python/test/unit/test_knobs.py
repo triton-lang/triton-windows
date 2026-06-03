@@ -1,6 +1,7 @@
 import os
 import pytest
 import shutil
+import torch  # noqa: F401 # TheRock ROCm requires importing torch before triton
 import triton
 from triton._internal_testing import is_hip
 
