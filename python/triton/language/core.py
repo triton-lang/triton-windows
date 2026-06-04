@@ -1607,8 +1607,9 @@ def _resolve_aggregate_fields(cls):
         all_annotations.update(getattr(base, "__annotations__", {}))
         all_defaults.update(getattr(base, "__aggregate_defaults__", {}))
 
-    # Add cls's own fields, resolving string annotations via typing.get_type_hints.
-    own_names = cls.__dict__.get("__annotations__", {})
+    # Add cls's own fields, materializing lazy annotations and resolving string
+    # annotations via typing.get_type_hints.
+    own_names = inspect.get_annotations(cls, eval_str=False)
     hints = typing.get_type_hints(cls)
     for name in own_names:
         all_annotations[name] = hints[name]
