@@ -1,6 +1,7 @@
 import os
 import pytest
 import shutil
+import torch  # noqa: F401 # TheRock ROCm requires importing torch before triton
 import triton
 import warnings
 from concurrent.futures import ThreadPoolExecutor
