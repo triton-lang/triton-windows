@@ -2,6 +2,7 @@ import os
 import subprocess
 import pathlib
 import pytest
+import torch  # noqa: F401 # TheRock ROCm requires importing torch before triton
 
 from triton._internal_testing import is_cuda, is_hip, is_hip_cdna2
 
