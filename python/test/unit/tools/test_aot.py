@@ -8,6 +8,7 @@ import tempfile
 
 import numpy as np
 
+import torch  # noqa: F401 # TheRock ROCm requires importing torch before triton
 import triton
 from triton.backends.compiler import GPUTarget
 from triton.runtime.build import is_clang_cl, is_msvc, is_tcc, get_cc
@@ -374,13 +375,19 @@ def write_triton_kernels(dir, src, util_src):
 def _compile_kernel(dir, signature, kernel_name, out_name, out_path, num_warps, grid, kernel_path, target=None):
     compiler_path = os.path.join(triton.tools.__path__[0], "compile.py")
     cmd_args = [
-        sys.executable, compiler_path, "-n", kernel_name, "--signature", signature, "--out-name", out_name, "-o",
-        out_path, "-w",
+        "-n", kernel_name, "--signature", signature, "--out-name", out_name, "-o", out_path, "-w",
         str(num_warps), "-g", grid
     ]
     if target:
         cmd_args.extend(["-t", "%s:%s:%i" % (target.backend, target.arch, target.warp_size)])
     cmd_args.append(kernel_path)
+
+    if os.name == "nt" and is_hip():
+        # TheRock ROCm requires importing torch before triton
+        wrapper = "import runpy, sys; import torch; sys.argv = sys.argv[1:]; runpy.run_path(sys.argv[0], run_name='__main__')"
+        cmd_args = [sys.executable, "-c", wrapper, compiler_path] + cmd_args
+    else:
+        cmd_args = [sys.executable, compiler_path] + cmd_args
     subprocess.run(cmd_args, check=True, cwd=dir)
 
 
