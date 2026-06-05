@@ -4,6 +4,7 @@ import shutil
 import time
 
 import pytest
+import torch  # noqa: F401 # TheRock ROCm requires importing torch before triton
 import triton
 import triton.language as tl
 from triton.compiler import ASTSource

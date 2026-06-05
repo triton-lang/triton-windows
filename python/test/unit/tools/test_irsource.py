@@ -1,4 +1,5 @@
 import pathlib
+import torch  # noqa: F401 # TheRock ROCm requires importing torch before triton
 import triton
 from triton.compiler import IRSource, make_backend
 from triton._C.libtriton import ir
