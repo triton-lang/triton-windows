@@ -1785,6 +1785,7 @@ def test_load_scope_sem_coop_grid_cta_not_one(device):
 
 
 @pytest.mark.interpreter
+@pytest.mark.skipif(is_hip(), reason="Cooperative launch is currently not supported on HIP")
 def test_load_scope_sem_coop_grid_cta_one(device):
 
     @triton.jit
