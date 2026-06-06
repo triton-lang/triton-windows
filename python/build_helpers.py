@@ -292,16 +292,16 @@ def _validate_sha256(archive_path, url, expected_sha256):
     raise RuntimeError(message)
 
 
-def _download_and_extract(url, download_dir, label, archives_path, expected_sha256=None):
+def _download_and_extract(url, remove_dir, extract_dir, label, archives_path, expected_sha256=None):
     keep_archive = check_env_flag("TRITON_CACHE_DEPENDENCY_DOWNLOADS")
     archive_path = _get_archive_path(archives_path, url)
     if not (keep_archive and os.path.exists(archive_path)):
         _download_file(url, archive_path, f"downloading {label}")
     _validate_sha256(archive_path, url, expected_sha256)
     with contextlib.suppress(Exception):
-        shutil.rmtree(download_dir)
-    os.makedirs(download_dir, exist_ok=True)
-    _extract_archive(archive_path, download_dir)
+        shutil.rmtree(remove_dir)
+    os.makedirs(extract_dir, exist_ok=True)
+    _extract_archive(archive_path, extract_dir)
     if not keep_archive:
         os.remove(archive_path)
 
@@ -527,7 +527,8 @@ def _get_thirdparty_package_cmake_vars(package: Package, helper_args: BuildHelpe
     if helper_args.offline_build and not input_defined:
         raise RuntimeError(f"Requested an offline build but {package.syspath_var_name} is not set")
     if not helper_args.offline_build and not input_defined and not input_compatible:
-        _download_and_extract(package.url, package_root_dir, package.name, helper_args.archives_path, package.sha256sum)
+        _download_and_extract(package.url, package_dir, package_root_dir, package.name, helper_args.archives_path,
+                              package.sha256sum)
         # write version url to package_dir
         with open(os.path.join(package_dir, "version.txt"), "w") as file:
             file.write(package.url)
@@ -605,7 +606,7 @@ def download_codegen_llvm(backend: str, llvm_info: dict, helper_args: BuildHelpe
         if helper_args.offline_build:
             raise RuntimeError(f"Requested an offline build but {backend} bootstrap LLVM is missing from {llvm_path}")
         archive = get_llvm_archive(system_suffix, {**bootstrap, "llvm_hash": llvm_info["llvm_hash"]})
-        _download_and_extract(archive.url, package_root, name, helper_args.archives_path, archive.sha256sum)
+        _download_and_extract(archive.url, llvm_path, package_root, name, helper_args.archives_path, archive.sha256sum)
     if not os.path.isfile(llvm_config):
         raise RuntimeError(f"Cannot find independently pinned {backend} LLVM configuration at {llvm_config}")
     return llvm_path
@@ -682,7 +683,8 @@ def download_and_copy_amd_codegen(helper_args: BuildHelperArgs):
         if not os.path.isfile(source_path):
             if helper_args.offline_build:
                 raise RuntimeError(f"Requested an offline build but AMD code generation is missing from {source_path}")
-            _download_and_extract(package.url, package_root, package.name, helper_args.archives_path, package.sha256sum)
+            _download_and_extract(package.url, os.path.join(package_root, package.name), package_root, package.name,
+                                  helper_args.archives_path, package.sha256sum)
 
     if not os.path.isfile(source_path):
         raise RuntimeError(f"Cannot find AMD code generation at {source_path}; set TRITON_AMD_CODEGEN_PATH")
@@ -726,7 +728,7 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
         assert curr_version is not None, f"No version information for {dst_path}"
         download = download or curr_version.group(1) != version
     if download:
-        _download_and_extract(url, tmp_path, name, helper_args.archives_path)
+        _download_and_extract(url, tmp_path, tmp_path, name, helper_args.archives_path)
     os.makedirs(os.path.split(dst_path)[0], exist_ok=True)
     print(f"copy {src_path} to {dst_path} ...")
     if os.path.isdir(src_path):
