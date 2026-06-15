@@ -48,6 +48,12 @@ static inline const char *dlerror(void) {
 #include <dlfcn.h>
 #endif
 
+#ifdef _WIN32
+#define HIP_LIB_NAME "amdhip64.dll"
+#else
+#define HIP_LIB_NAME "libamdhip64.so"
+#endif
+
 // Include shared TDM utilities
 #include "TDMCommon.h"
 
@@ -364,7 +370,7 @@ static int checkDriverVersion(void *lib) {
   error = dlerror();
   if (error) {
     PyErr_SetString(PyExc_RuntimeError,
-                    "cannot query 'hipDriverGetVersion' from libamdhip64.so");
+                    "cannot query 'hipDriverGetVersion' from " HIP_LIB_NAME);
     dlclose(lib);
     return -1;
   }
@@ -379,9 +385,9 @@ static int checkDriverVersion(void *lib) {
     const int hipPatchVersion =
         TRITON_HIP_DRIVER_EXTRACT_PATCH_VERSION(hipVersion);
     snprintf(msgBuff, sizeof(msgBuff),
-             "libamdhip64 version %d.%d.%d is not supported! Required major "
+             "%s version %d.%d.%d is not supported! Required major "
              "version is >=%d.",
-             hipMajVersion, hipMinVersion, hipPatchVersion,
+             HIP_LIB_NAME, hipMajVersion, hipMinVersion, hipPatchVersion,
              TRITON_HIP_DRIVER_REQ_MAJOR_VERSION);
     PyErr_SetString(PyExc_RuntimeError, msgBuff);
     dlclose(lib);
@@ -407,7 +413,7 @@ bool initSymbolTable() {
   }
 
   if (!lib) {
-    PyErr_SetString(PyExc_RuntimeError, "cannot open libamdhip64.so");
+    PyErr_SetString(PyExc_RuntimeError, "cannot open " HIP_LIB_NAME);
     return false;
   }
 
@@ -426,7 +432,7 @@ bool initSymbolTable() {
   error = dlerror();
   if (error) {
     PyErr_SetString(PyExc_RuntimeError,
-                    "cannot query 'hipGetProcAddress' from libamdhip64.so");
+                    "cannot query 'hipGetProcAddress' from " HIP_LIB_NAME);
     dlclose(lib);
     return false;
   }
@@ -442,7 +448,7 @@ bool initSymbolTable() {
   if (required && status != hipSuccess) {                                      \
     PyErr_SetString(PyExc_RuntimeError,                                        \
                     "cannot get address for '" #hipSymbolName                  \
-                    "' from libamdhip64.so");                                  \
+                    "' from " HIP_LIB_NAME);                                   \
     dlclose(lib);                                                              \
     return false;                                                              \
   }
