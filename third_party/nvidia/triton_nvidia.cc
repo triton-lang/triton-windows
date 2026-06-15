@@ -81,9 +81,15 @@ public:
     dylibHandle = dlopen("libcuda.so.1", RTLD_NOLOAD | RTLD_LAZY);
 #endif
     if (dylibHandle == nullptr) {
+#ifdef _WIN32
+      throw std::runtime_error(
+          "Could not find an already-loaded `nvcuda.dll`. Initialize "
+          "Triton's NVIDIA runtime before using this helper.");
+#else
       throw std::runtime_error(
           "Could not find an already-loaded `libcuda.so.1`. Initialize "
           "Triton's NVIDIA runtime before using this helper.");
+#endif
     }
     cuMemAlloc = loadSymbol<cuMemAlloc_t>("cuMemAlloc_v2");
     cuMemFree = loadSymbol<cuMemFree_t>("cuMemFree_v2");
