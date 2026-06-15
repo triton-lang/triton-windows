@@ -406,21 +406,37 @@ typedef CUresult (*cuLaunchKernelEx_t)(const CUlaunchConfig *config,
     return funcHandle;                                                         \
   }
 #else
+/* Format a Windows error code into a human-readable message. */
+static void win32_format_error(char *buf, size_t bufsize, const char *context,
+                               DWORD err) {
+  char msg[256] = {0};
+  DWORD len =
+      FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                     NULL, err, 0, msg, sizeof(msg), NULL);
+  while (len > 0 && (msg[len - 1] == '\r' || msg[len - 1] == '\n'))
+    msg[--len] = '\0';
+  snprintf(buf, bufsize, "%s: %s (error %lu)", context,
+           len ? msg : "Unknown error", (unsigned long)err);
+}
 #define defineGetFunctionHandle(name, symbolName)                              \
   static symbolName##_t name() {                                               \
     /* Open the shared library */                                              \
     HMODULE handle = LoadLibraryA("nvcuda.dll");                               \
     if (!handle) {                                                             \
-      PyErr_SetString(PyExc_RuntimeError, "Failed to open nvcuda.dll");        \
+      char errBuf[512];                                                        \
+      win32_format_error(errBuf, sizeof(errBuf), "Failed to open nvcuda.dll",  \
+                         GetLastError());                                      \
+      PyErr_SetString(PyExc_RuntimeError, errBuf);                             \
       return NULL;                                                             \
     }                                                                          \
     symbolName##_t funcHandle =                                                \
         (symbolName##_t)GetProcAddress((HMODULE)handle, #symbolName);          \
-    /* Check for errors */                                                     \
-    long err = GetLastError();                                                 \
-    if (err) {                                                                 \
-      PyErr_SetString(PyExc_RuntimeError,                                      \
-                      "Failed to retrieve " #symbolName " from nvcuda.dll");   \
+    if (!funcHandle) {                                                         \
+      char errBuf[512];                                                        \
+      win32_format_error(errBuf, sizeof(errBuf),                               \
+                         "Failed to retrieve " #symbolName " from nvcuda.dll", \
+                         GetLastError());                                      \
+      PyErr_SetString(PyExc_RuntimeError, errBuf);                             \
       return NULL;                                                             \
     }                                                                          \
     return funcHandle;                                                         \
