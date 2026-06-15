@@ -85,7 +85,12 @@ class HipblasLtInstance {
     if (dylibHandle == nullptr) {
       throw std::runtime_error("Could not find `" + std::string(name) +
                                "`. Make sure it is in your "
-                               "LD_LIBRARY_PATH.");
+#ifdef _WIN32
+                               "PATH."
+#else
+                               "LD_LIBRARY_PATH."
+#endif
+      );
     }
     dlerror(); // Clear any existing error
 
