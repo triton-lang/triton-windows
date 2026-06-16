@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import gc
+import os
 from enum import IntEnum
 from pathlib import Path
 from types import ModuleType
@@ -31,7 +32,7 @@ def _load_gsan_module() -> ModuleType:
         name="gsan_allocator",
         library_dirs=library_dirs(),
         include_dirs=include_dirs,
-        libraries=["libcuda.so.1"],
+        libraries=["cuda"] if os.name == "nt" else ["libcuda.so.1"],
     )
 
 
