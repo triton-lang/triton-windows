@@ -185,7 +185,9 @@ def find_msvc(env_only: bool) -> tuple[Optional[str], list[str], list[str]]:
             )
 
     if not env_only:
-        warnings.warn("Failed to find MSVC.")
+        warnings.warn("Failed to find MSVC."
+                      " Install Visual Studio Build Tools (https://visualstudio.microsoft.com/downloads/)"
+                      " or set the CC environment variable to your C compiler.")
     return None, [], []
 
 
@@ -284,7 +286,9 @@ def find_winsdk(env_only: bool) -> tuple[list[str], list[str]]:
             )
 
     if not env_only:
-        warnings.warn("Failed to find Windows SDK.")
+        warnings.warn("Failed to find Windows SDK."
+                      " Install it via Visual Studio Installer or from"
+                      " https://developer.microsoft.com/windows/downloads/windows-sdk/")
     return [], []
 
 
@@ -313,7 +317,9 @@ def find_python() -> list[str]:
         if (python_lib_dir / f"python{version}.lib").exists():
             return [str(python_lib_dir)]
 
-    warnings.warn("Failed to find Python libs.")
+    warnings.warn("Failed to find Python libs."
+                  " Ensure you are using an official Python distribution"
+                  " and python3XX.lib exists in your Python installation.")
     return []
 
 
@@ -416,7 +422,9 @@ def find_cuda() -> tuple[Optional[str], list[str], list[str]]:
         if cuda_bin_path:
             return cuda_bin_path, cuda_inc_dirs, cuda_lib_dirs
 
-    warnings.warn("Failed to find CUDA.")
+    warnings.warn("Failed to find CUDA."
+                  " Install CUDA Toolkit (https://developer.nvidia.com/cuda-downloads)"
+                  " or set CUDA_HOME / CUDA_PATH environment variable.")
     return None, [], []
 
 
@@ -439,7 +447,10 @@ def find_hip() -> tuple[Optional[str], list[str], list[str]]:
     except (ImportError, ModuleNotFoundError):
         pass
 
-    warnings.warn("Failed to find ROCm/HIP.")
+    warnings.warn(
+        "Failed to find ROCm/HIP."
+        " Install ROCm for Windows (https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/windows/howto_windows.html#)"
+        " or set HIP_PATH environment variable.")
     return None, [], []
 
 
