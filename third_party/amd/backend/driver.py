@@ -223,7 +223,13 @@ def _get_path_to_hip_runtime_dylib():
             return common_install_path
         paths.append(common_install_path)
 
-    raise RuntimeError(f"cannot locate {lib_name} after attempted paths {paths}")
+    msg = f"cannot locate {lib_name} after attempted paths {paths}"
+    if _is_windows():
+        msg += ("\n\nOn Windows, ensure that:"
+                "\n  - ROCm for Windows is installed (e.g. 'pip install rocm-sdk')"
+                f"\n  - '{lib_name}' is on your PATH or HIP_PATH is set to the HIP SDK root"
+                f"\n  - Or set TRITON_LIBHIP_PATH to the full path of {lib_name}")
+    raise RuntimeError(msg)
 
 
 class HIPUtils(object):

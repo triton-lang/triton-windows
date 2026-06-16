@@ -142,6 +142,10 @@ def _build(name: str, src: str, srcdir: str, library_dirs: list[str], include_di
 
 
 def _library_flag(lib: str) -> str:
+    if os.name == "nt":
+        if not lib.endswith(".lib"):
+            lib = lib + ".lib"
+        return lib
     # Match .so files with optional version numbers (e.g., .so, .so.1, .so.513.50.1)
     if re.search(r'\.so(\.\d+)*$', lib) or lib.endswith(".a"):
         return f"-l:{lib}"
@@ -178,7 +182,8 @@ def compile_module_from_src(src: str, name: str, library_dirs: list[str] | None 
             return _load_module_from_path(name, cache_path)
         except (RuntimeError, ImportError):
             log = logging.getLogger(__name__)
-            log.warning(f"Triton cache error: compiled module {name}.so could not be loaded")
+            ext = ".pyd" if os.name == "nt" else ".so"
+            log.warning(f"Triton cache error: compiled module {name}{ext} could not be loaded")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = normalize_path(tmpdir)
