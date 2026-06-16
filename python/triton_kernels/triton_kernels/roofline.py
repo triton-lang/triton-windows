@@ -1,4 +1,5 @@
 import ctypes
+import os
 import matplotlib.pyplot as plt
 import triton
 from triton._C.libtriton import nvidia, amd
@@ -67,7 +68,7 @@ def compute_roofline(*args, \
     perfs = []
     if verbose:
         print("=========================================")
-        print(f"{out_path   }...")
+        print(f"{out_path}...")
         print("=========================================")
     for val in intensity_proxy_values:
         perf = inject_proxy_and_call(val, args, kwargs)
@@ -90,7 +91,7 @@ def get_memset_tbps():
     stream0 = ctypes.c_void_p(0)
 
     if is_cuda():
-        libname = "libcuda.so"
+        libname = "nvcuda.dll" if os.name == "nt" else "libcuda.so"
         init_name = "cuInit"
         memset_name = "cuMemsetD8Async"
         memset_argtypes = [ctypes.c_uint64, ctypes.c_ubyte, ctypes.c_size_t, ctypes.c_void_p]
@@ -118,7 +119,8 @@ def get_memset_tbps():
         init_fn(0)
 
     if not hasattr(lib, memset_name):
-        raise RuntimeError(f"{memset_name} not found in {libname}")
+        raise RuntimeError(f"{memset_name} not found in {libname}."
+                           " Ensure the correct GPU driver/runtime library is installed.")
 
     memset_fn = getattr(lib, memset_name)
     memset_fn.argtypes = memset_argtypes
