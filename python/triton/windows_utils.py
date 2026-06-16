@@ -447,9 +447,10 @@ def find_hip() -> tuple[Optional[str], list[str], list[str]]:
     except (ImportError, ModuleNotFoundError):
         pass
 
-    warnings.warn("Failed to find ROCm/HIP."
-                  " Install ROCm for Windows (https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/windows/howto_windows.html#)"
-                  " or set HIP_PATH environment variable.")
+    warnings.warn(
+        "Failed to find ROCm/HIP."
+        " Install ROCm for Windows (https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/windows/howto_windows.html#)"
+        " or set HIP_PATH environment variable.")
     return None, [], []
 
 
