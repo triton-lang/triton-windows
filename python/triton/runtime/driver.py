@@ -12,7 +12,20 @@ def _create_driver() -> DriverBase:
             raise RuntimeError(f"Unknown backend device '{selected}'. Available backends: {list(backends.keys())}")
         driver = backends[selected].driver
         if not driver.is_active():
-            raise RuntimeError(f"Backend device '{selected}' is not active.")
+            msg = f"Backend device '{selected}' is not active."
+            if os.name == "nt":
+                if selected == "hip":
+                    msg += ("\n\nOn Windows, ensure that:"
+                            "\n  - ROCm for Windows is installed (e.g. 'pip install rocm-sdk')"
+                            "\n  - 'amdhip64.dll' is on your PATH"
+                            "\n  - HIP_PATH environment variable is set to the HIP SDK root"
+                            "\n  - Your AMD GPU driver is up to date")
+                elif selected == "cuda":
+                    msg += ("\n\nOn Windows, ensure that:"
+                            "\n  - CUDA Toolkit is installed (https://developer.nvidia.com/cuda-downloads)"
+                            "\n  - 'nvcuda.dll' is on your PATH"
+                            "\n  - Your NVIDIA GPU driver is up to date")
+            raise RuntimeError(msg)
         return driver()
     else:
         active_drivers = [x.driver for x in backends.values() if x.driver.is_active()]

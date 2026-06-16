@@ -1,4 +1,5 @@
 import functools
+import logging
 import os
 import subprocess
 import triton
@@ -17,6 +18,8 @@ from triton.backends.driver import (
     get_kernel_argument_layout,
     wrap_handle_tensordesc_impl,
 )
+
+logger = logging.getLogger(__name__)
 
 dirname = os.path.dirname(os.path.realpath(__file__))
 include_dirs = [os.path.join(dirname, "include")]
@@ -77,8 +80,8 @@ def _cuda_driver_is_active():
         candidates = ["libcuda.so.1"]
         try:
             candidates.extend([os.path.join(path, "libcuda.so.1") for path in libcuda_dirs()])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to get libcuda dirs: %s", e)
         load_library = ctypes.CDLL
 
     libcuda = None
@@ -86,7 +89,8 @@ def _cuda_driver_is_active():
         try:
             libcuda = load_library(candidate)
             break
-        except OSError:
+        except OSError as e:
+            logger.debug("Failed to load %s: %s", candidate, e)
             continue
 
     if libcuda is None:

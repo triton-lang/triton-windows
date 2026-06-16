@@ -1,6 +1,7 @@
 """Build and handle types shared by the independent CUDA allocators."""
 from enum import IntEnum
 import hashlib
+import os
 from pathlib import Path
 
 from triton.runtime import driver as runtime_driver
@@ -24,7 +25,7 @@ def load_allocator(source: str, name: str, *, torch_integration: bool = False, e
     for header in sorted(p for p in directory.iterdir() if p.suffix in (".h", ".cuh")):
         digest.update(header.name.encode())
         digest.update(header.read_bytes())
-    libraries = ["libcuda.so.1"]
+    libraries = ["cuda"] if os.name == "nt" else ["libcuda.so.1"]
     library_paths = library_dirs()
     includes = list(include_dirs)
     flags = [str(directory / extra_source) for extra_source in extra_sources]
