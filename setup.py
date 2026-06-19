@@ -243,7 +243,11 @@ def get_llvm_package_info():
     with open(llvm_hash_path, "r") as llvm_hash_file:
         rev = llvm_hash_file.read(8)
     # Build number of the pre-compiled LLVM artifacts in the blob store.
-    build_number = "1"
+    if rev == "1f126a6d" and system_suffix == "windows-x64":
+        # See https://github.com/triton-lang/triton/pull/10660
+        build_number = "2"
+    else:
+        build_number = "1"
     name = f"llvm-{rev}-{system_suffix}-{build_number}"
     # Create a stable symlink that doesn't include revision
     sym_name = f"llvm-{system_suffix}"
