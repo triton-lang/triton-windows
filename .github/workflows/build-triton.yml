@@ -103,7 +103,9 @@ jobs:
           pip install --upgrade cibuildwheel
 
           cd triton-windows
+          git fetch origin "+refs/heads/*:refs/remotes/origin/*"
           git rev-parse HEAD
+          git for-each-ref --contains HEAD --format "%(refname:short)"
 
           if ($Env:CIBW_BUILD_OVERRIDE)
           {
