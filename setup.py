@@ -45,6 +45,21 @@ from setuptools import SetuptoolsDeprecationWarning
 warnings.filterwarnings("ignore", category=SetuptoolsDeprecationWarning)
 
 
+def get_git_commit_timestamp():
+    try:
+        timestamp = subprocess.check_output(
+            ["git", "-C", os.path.dirname(os.path.abspath(__file__)), "log", "-1",
+             "--format=%ct"]).strip().decode("utf-8")
+    except Exception:
+        return None
+    return timestamp if timestamp.isdigit() else None
+
+
+# Make wheel ZIP metadata deterministic
+# If SOURCE_DATE_EPOCH is unspecified, then query with git, then fallback to Unix epoch
+os.environ.setdefault("SOURCE_DATE_EPOCH", get_git_commit_timestamp() or "315532800")
+
+
 def is_git_repo() -> bool:
     """Return True if this file resides at the root of a git repository."""
     expected_toplevel = Path(__file__).parent.resolve()
@@ -149,6 +164,18 @@ def get_env_with_keys(key: list):
         if k in os.environ:
             return os.environ[k]
     return ""
+
+
+def get_windows_pathmap_flags(base_dir, cmake_dir):
+    paths = [
+        (base_dir, "C:/reproducible/path/triton/source"),
+        (cmake_dir, "C:/reproducible/path/triton/cmake-build"),
+    ]
+    flags = []
+    for source, target in paths:
+        source = os.path.normpath(os.path.realpath(source))
+        flags.append(f"/pathmap:{source}={target}")
+    return " ".join(flags)
 
 
 def is_offline_build() -> bool:
@@ -273,6 +300,7 @@ class CMakeBuild(build_ext):
         thirdparty_cmake_args = self.get_nanobind_cmake_args()
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.path)))
         wheeldir = os.path.dirname(extdir)
+        cmake_dir = get_cmake_dir()
 
         # create build directories
         if not os.path.exists(self.build_temp):
@@ -306,7 +334,15 @@ class CMakeBuild(build_ext):
 
         cmake_args += [f"-DCMAKE_BUILD_TYPE={cfg}"]
         if platform.system() == "Windows":
+            pathmap_flags = get_windows_pathmap_flags(self.base_dir, cmake_dir)
+            reproducible_compile_flags = f"/experimental:deterministic {pathmap_flags}"
             cmake_args += [f"-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_{cfg.upper()}={extdir}"]
+            cmake_args += [f"-DCMAKE_C_FLAGS_INIT={reproducible_compile_flags}"]
+            cmake_args += [f"-DCMAKE_CXX_FLAGS_INIT={reproducible_compile_flags}"]
+            cmake_args += ["-DCMAKE_EXE_LINKER_FLAGS_INIT=/Brepro"]
+            cmake_args += ["-DCMAKE_MODULE_LINKER_FLAGS_INIT=/Brepro"]
+            cmake_args += ["-DCMAKE_SHARED_LINKER_FLAGS_INIT=/Brepro"]
+            cmake_args += ["-DCMAKE_STATIC_LINKER_FLAGS_INIT=/Brepro"]
         else:
             max_jobs = os.getenv("MAX_JOBS", str(2 * os.cpu_count()))
             build_args += ['-j' + max_jobs]
@@ -379,7 +415,6 @@ class CMakeBuild(build_ext):
             cmake_args += shlex.split(cmake_args_append)
 
         env = os.environ.copy()
-        cmake_dir = get_cmake_dir()
         subprocess.check_call(["cmake", self.base_dir] + cmake_args, cwd=cmake_dir, env=env)
         update_symlink(Path(self.base_dir) / "compile_commands.json", cmake_dir / "compile_commands.json")
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=cmake_dir)
