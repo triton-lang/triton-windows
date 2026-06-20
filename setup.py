@@ -580,6 +580,21 @@ def get_git_commit_hash(length=8):
         return ""
 
 
+def get_git_branch_detached_head():
+    try:
+        cmd = ['git', 'for-each-ref', '--contains', 'HEAD', '--format', '%(refname:short)']
+        lines = subprocess.check_output(cmd).decode('utf-8')
+    except Exception:
+        return ""
+
+    for line in lines.splitlines():
+        line = line.strip()
+        if line.startswith("origin/"):
+            line = line[len("origin/"):]
+        return line
+    return ""
+
+
 def get_git_branch():
     try:
         cmd = ['git', 'rev-parse', '--abbrev-ref', 'HEAD']
@@ -591,7 +606,9 @@ def get_git_branch():
 def get_git_version_suffix():
     if not is_git_repo():
         return ""  # Not a git checkout
-    branch = get_git_branch()
+    branch = get_git_branch_detached_head()
+    if not branch:
+        branch = get_git_branch()
     if branch.startswith("release"):
         return ""
     else:
