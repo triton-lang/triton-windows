@@ -190,7 +190,10 @@ def update_symlink(link_path, source_path):
 
     print(f"creating symlink: {link_path} -> {source_path}", file=sys.stderr)
     link_path.absolute().parent.mkdir(parents=True, exist_ok=True)  # Ensure link's parent directory exists
-    link_path.symlink_to(source_path.absolute(), target_is_directory=True)
+    try:
+        link_path.symlink_to(source_path.absolute(), target_is_directory=True)
+    except OSError as e:
+        print(f"Warning: Could not create symlink: {e}", file=sys.stderr)
 
 
 # ---- cmake extension ----
