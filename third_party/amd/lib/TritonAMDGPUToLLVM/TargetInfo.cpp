@@ -167,9 +167,39 @@ Value TargetInfo::ballot(RewriterBase &rewriter, Location loc, Type type,
 
 Value TargetInfo::getGlobalTimer(RewriterBase &rewriter, Location loc) const {
   auto b = TritonLLVMOpBuilder(loc, rewriter);
-  Value timer = LLVM::createLLVMIntrinsicCallOp(
-                    rewriter, loc, "llvm.amdgcn.s.memrealtime", i64_ty, {})
-                    .getResult(0);
+  Value timer;
+  switch (getISAFamily()) {
+  case ISAFamily::RDNA3:
+    timer = LLVM::InlineAsmOp::create(
+                rewriter, loc, i64_ty, ValueRange{},
+                "s_sendmsg_rtn_b64 $0, sendmsg(MSG_RTN_GET_REALTIME)\n"
+                "s_waitcnt lgkmcnt(0)",
+                "=r", /*has_side_effects=*/true, /*is_align_stack=*/false,
+                LLVM::TailCallKind::None,
+                LLVM::AsmDialectAttr::get(rewriter.getContext(),
+                                          LLVM::AsmDialect::AD_ATT),
+                ArrayAttr::get(rewriter.getContext(), {}))
+                .getRes();
+    break;
+  case ISAFamily::RDNA4:
+  case ISAFamily::GFX1250:
+    timer = LLVM::InlineAsmOp::create(
+                rewriter, loc, i64_ty, ValueRange{},
+                "s_sendmsg_rtn_b64 $0, sendmsg(MSG_RTN_GET_REALTIME)\n"
+                "s_wait_kmcnt 0",
+                "=r", /*has_side_effects=*/true, /*is_align_stack=*/false,
+                LLVM::TailCallKind::None,
+                LLVM::AsmDialectAttr::get(rewriter.getContext(),
+                                          LLVM::AsmDialect::AD_ATT),
+                ArrayAttr::get(rewriter.getContext(), {}))
+                .getRes();
+    break;
+  default:
+    timer = LLVM::createLLVMIntrinsicCallOp(
+                rewriter, loc, "llvm.amdgcn.s.memrealtime", i64_ty, {})
+                .getResult(0);
+    break;
+  }
   // The clock generator runs at 100 MHz, so each tick is 10 ns.
   return b.mul(timer, b.i64_val(10));
 }
