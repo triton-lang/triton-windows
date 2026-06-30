@@ -61,17 +61,16 @@ os.environ.setdefault("SOURCE_DATE_EPOCH", get_git_commit_timestamp() or "315532
 
 
 def is_git_repo() -> bool:
-    """Return True if this file resides at the root of a git repository."""
+    """Return True if this file is inside a git work tree."""
     expected_toplevel = Path(__file__).parent.resolve()
 
     try:
-        stdout: str = subprocess.check_output(['git', 'rev-parse', '--show-toplevel'], cwd=expected_toplevel,
+        stdout: str = subprocess.check_output(['git', 'rev-parse', '--is-inside-work-tree'], cwd=expected_toplevel,
                                               stderr=subprocess.DEVNULL).strip().decode('utf-8')
     except subprocess.CalledProcessError:
         return False
-    actual_toplevel = Path(stdout).resolve()
 
-    return actual_toplevel == expected_toplevel
+    return stdout == "true"
 
 
 @dataclass
