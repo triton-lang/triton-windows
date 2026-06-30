@@ -1,5 +1,47 @@
 #include "Profiler/RocprofSDK/RocprofSDKProfiler.h"
 
+#ifdef _WIN32
+#include "Utility/Errors.h"
+
+namespace proton {
+
+template <>
+thread_local GPUProfiler<RocprofSDKProfiler>::ThreadState
+    GPUProfiler<RocprofSDKProfiler>::threadState(
+        RocprofSDKProfiler::instance());
+
+struct RocprofSDKProfiler::RocprofSDKProfilerPimpl
+    : public GPUProfiler<RocprofSDKProfiler>::GPUProfilerPimplInterface {
+  RocprofSDKProfilerPimpl(RocprofSDKProfiler &profiler)
+      : GPUProfilerPimplInterface(profiler) {}
+
+  void doStart() override {
+    throw makeRuntimeError(
+        "Rocprofiler-SDK profiling is not supported on Windows");
+  }
+  void doFlush() override {}
+  void doStop() override {}
+};
+
+RocprofSDKProfiler::RocprofSDKProfiler() {
+  pImpl = std::make_unique<RocprofSDKProfilerPimpl>(*this);
+}
+
+RocprofSDKProfiler::~RocprofSDKProfiler() = default;
+
+void RocprofSDKProfiler::doSetMode(
+    const std::vector<std::string> &modeAndOptions) {
+  auto mode = modeAndOptions.empty() ? std::string() : modeAndOptions[0];
+  if (!mode.empty()) {
+    throw std::invalid_argument(
+        "[PROTON] RocprofSDKProfiler: unsupported mode: " + mode);
+  }
+}
+
+} // namespace proton
+
+#else
+
 #include "Context/Context.h"
 #include "Data/Metric.h"
 #include "Driver/Dispatch.h"
@@ -1004,3 +1046,5 @@ void RocprofSDKProfiler::doSetMode(
 }
 
 } // namespace proton
+
+#endif // _WIN32

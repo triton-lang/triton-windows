@@ -1,3 +1,11 @@
+#ifdef _WIN32
+
+namespace proton {
+namespace rocprofiler {} // namespace rocprofiler
+} // namespace proton
+
+#else
+
 #include "Driver/GPU/RocprofApi.h"
 
 namespace proton {
@@ -58,3 +66,5 @@ DEFINE_DISPATCH(ExternLibRocprofiler, queryAvailableAgents,
 
 } // namespace rocprofiler
 } // namespace proton
+
+#endif // _WIN32
