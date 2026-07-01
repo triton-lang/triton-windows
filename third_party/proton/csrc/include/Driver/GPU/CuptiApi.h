@@ -36,6 +36,10 @@ CUptiResult activityRegisterCallbacks(
     CUpti_BuffersCallbackCompleteFunc funcBufferCompleted);
 
 template <bool CheckSuccess>
+CUptiResult
+activityRegisterTimestampCallback(CUpti_TimestampCallbackFunc funcTimestamp);
+
+template <bool CheckSuccess>
 CUptiResult subscribe(CUpti_SubscriberHandle *subscriber,
                       CUpti_CallbackFunc callback, void *userdata);
 

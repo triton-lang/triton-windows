@@ -35,6 +35,15 @@ thread_local GPUProfiler<CuptiProfiler>::ThreadState
 
 namespace {
 
+#ifdef _WIN32
+uint64_t CUPTIAPI getCurrentCpuTimestampNs() {
+  using Clock = std::chrono::system_clock;
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(
+             Clock::now().time_since_epoch())
+      .count();
+}
+#endif
+
 std::unique_ptr<Metric>
 convertKernelActivityToMetric(CUpti_Activity *activity,
                               bool isMetricKernel = false) {
@@ -781,6 +790,9 @@ void CuptiProfiler::CuptiProfilerPimpl::callbackFn(void *userData,
 
 void CuptiProfiler::CuptiProfilerPimpl::doStart() {
   cupti::subscribe<true>(&subscriber, callbackFn, nullptr);
+#ifdef _WIN32
+  cupti::activityRegisterTimestampCallback<true>(getCurrentCpuTimestampNs);
+#endif
   if (profiler.pcSamplingEnabled) {
     setResourceCallbacks(subscriber, /*enable=*/true);
     // Continuous PC sampling is not compatible with concurrent kernel profiling
