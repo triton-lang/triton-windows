@@ -864,6 +864,9 @@ void CuptiProfiler::CuptiProfilerPimpl::doStop() {
   // We have to clear the correlation maps before unsubscribing because CUPTI
   // will reset correlation ID after unsubscribing
   profiler.correlation.clear();
+  profiler.pendingGraphPool->flushAll();
+  profiler.pendingGraphPool->clear();
+  profiler.metricBuffer->release();
   setGraphCallbacks(subscriber, /*enable=*/false);
   setLaunchCallbacks(subscriber, /*enable=*/false);
   nvtx::disable();
