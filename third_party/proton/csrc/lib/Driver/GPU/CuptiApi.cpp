@@ -18,6 +18,10 @@ DEFINE_DISPATCH(ExternLibCupti, activityRegisterCallbacks,
                 CUpti_BuffersCallbackRequestFunc,
                 CUpti_BuffersCallbackCompleteFunc)
 
+DEFINE_DISPATCH(ExternLibCupti, activityRegisterTimestampCallback,
+                cuptiActivityRegisterTimestampCallback,
+                CUpti_TimestampCallbackFunc)
+
 DEFINE_DISPATCH(ExternLibCupti, subscribe, cuptiSubscribe,
                 CUpti_SubscriberHandle *, CUpti_CallbackFunc, void *)
 
