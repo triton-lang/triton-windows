@@ -514,7 +514,9 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
         nvidia_toolchain_version = json.load(nvidia_version_file)
 
     exe_extension = sysconfig.get_config_var("EXE")
-    archive_extension = ".zip" if platform.system() == "Windows" else ".tar.xz"
+    is_windows = platform.system() == "Windows"
+    archive_extension = ".zip" if is_windows else ".tar.xz"
+    cupti_lib_version = nvidia_toolchain_version["cupti-windows" if is_windows else "cupti"]
     download_and_copy(
         name="nvidia/nvcc-" + nvidia_toolchain_version["ptxas"],
         src_func=lambda system, arch, version: f"cuda_nvcc-{system}-{arch}-{version}-archive/bin/ptxas{exe_extension}",
@@ -572,11 +574,11 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
             helper_args=helper_args,
         )
         download_and_copy(
-            name="nvidia/cupti-" + nvidia_toolchain_version["cupti"],
+            name="nvidia/cupti-" + cupti_lib_version,
             src_func=lambda system, arch, version: f"cuda_cupti-{system}-{arch}-{version}-archive/lib",
             dst_path="third_party/nvidia/backend/lib/cupti",
             override_path=helper_args.cupti_lib_path,
-            version=nvidia_toolchain_version["cupti"],
+            version=cupti_lib_version,
             url_func=lambda system, arch, version:
             f"https://developer.download.nvidia.com/compute/cuda/redist/cuda_cupti/{system}-{arch}/cuda_cupti-{system}-{arch}-{version}-archive{archive_extension}",
             helper_args=helper_args,
