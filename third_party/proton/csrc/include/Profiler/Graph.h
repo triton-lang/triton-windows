@@ -135,6 +135,8 @@ public:
   // Synchronize and flush all pending graph
   bool flushAll();
 
+  void clear();
+
   // Check if we need to flush all before pushing new pending graph
   bool flushIfNeeded(size_t numWords);
 
