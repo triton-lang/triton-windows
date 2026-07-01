@@ -488,6 +488,8 @@ public:
 
   ~MetricBuffer();
 
+  void release();
+
   void receive(const std::map<std::string, TensorMetric> &tensorMetrics,
                const std::map<std::string, MetricValueType> &scalarMetrics,
                const MetricKernelLaunchState &metricKernelLaunchState,
