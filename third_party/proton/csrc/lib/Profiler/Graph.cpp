@@ -181,6 +181,13 @@ void PendingGraphPool::peek(size_t phase) {
   }
 }
 
+void PendingGraphPool::clear() {
+  std::lock_guard<std::mutex> lock(mutex);
+  deviceBufferOffset.clear();
+  deviceRemainingCapacity.clear();
+  pool.clear();
+}
+
 bool PendingGraphPool::flushIfNeeded(size_t numWords) {
   auto *device = runtime->getDevice();
   const size_t requiredBytes = bytesForWords(numWords);
