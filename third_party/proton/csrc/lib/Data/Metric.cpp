@@ -15,7 +15,10 @@ std::shared_mutex MetricBuffer::metricDescriptorMutex;
 std::atomic<uint64_t> MetricBuffer::metricId{0};
 std::atomic<uint64_t> MetricBuffer::metricSeqId{1};
 
-MetricBuffer::~MetricBuffer() {
+MetricBuffer::~MetricBuffer() { release(); }
+
+void MetricBuffer::release() {
+  std::lock_guard<std::mutex> lock(bufferMutex);
   for (auto &[device, buffer] : deviceBuffers) {
     runtime->freeHostBuffer(buffer.hostPtr);
     runtime->freeHostBuffer(reinterpret_cast<uint8_t *>(buffer.hostOffset));
@@ -27,6 +30,7 @@ MetricBuffer::~MetricBuffer() {
       runtime->destroyStream(buffer.priorityStream);
     }
   }
+  deviceBuffers.clear();
 }
 
 void MetricBuffer::receive(
