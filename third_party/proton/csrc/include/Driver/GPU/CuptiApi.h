@@ -15,7 +15,7 @@ struct ExternLibCupti : public ExternLibBase {
 #ifdef _WIN32
   // On Windows, each version of CUPTI has a specific DLL name. Remember to
   // update this with `nvidia-toolchain-version.json`.
-  static constexpr const char *name = "cupti64_2025.1.1.dll";
+  static constexpr const char *name = "cupti64_2026.2.0.dll";
 #else
   static constexpr const char *name = "libcupti.so";
 #endif
