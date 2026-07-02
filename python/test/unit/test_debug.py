@@ -4,7 +4,7 @@ import pytest
 import torch
 import triton.language as tl
 import triton
-from triton._internal_testing import run_in_process
+from triton._internal_testing import is_hip, run_in_process
 
 if os.name == "nt":
     pytest.skip("Device-side assertions are disabled on Windows by default", allow_module_level=True)
@@ -133,7 +133,10 @@ def _run_overflow(x, y, x_dtype, y_dtype, debug, op, device):
 def _assert_overflow_result(result, debug, should_overflow):
     if should_overflow and debug:
         assert isinstance(result.exc, RuntimeError)
-        assert "device-side assert" in str(result.exc)
+        if is_hip():
+            assert "hipErrorLaunchFailure" in str(result.exc)
+        else:
+            assert "device-side assert" in str(result.exc)
         return
 
     assert result.exc is None, result.exc
