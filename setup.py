@@ -695,15 +695,16 @@ def download_and_copy_dependencies():
             f"https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/{system}-{arch}/cuda_cudart-{system}-{arch}-{version}-archive{archive_extension}",
         )
 
-    download_and_copy(
-        name="tcc",
-        src_func=lambda system, arch, version: ".",
-        dst_path="python/triton/runtime/tcc",
-        variable="TRITON_TCC_PATH",
-        version="",
-        url_func=lambda system, arch, version:
-        "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-05bb793/tcc-0.9.28rc-05bb793.zip",
-    )
+    if platform.system() == "Windows":
+        download_and_copy(
+            name="tcc",
+            src_func=lambda system, arch, version: ".",
+            dst_path="python/triton/runtime/tcc",
+            variable="TRITON_TCC_PATH",
+            version="",
+            url_func=lambda system, arch, version:
+            "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-05bb793/tcc-0.9.28rc-05bb793.zip",
+        )
 
 
 backends = [*BackendInstaller.copy(["nvidia", "amd"]), *BackendInstaller.copy_externals()]
