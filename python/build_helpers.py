@@ -625,16 +625,17 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
             helper_args=helper_args,
         )
 
-    download_and_copy(
-        name="tcc",
-        src_func=lambda system, arch, version: ".",
-        dst_path="python/triton/runtime/tcc",
-        override_path=None,
-        version="",
-        url_func=lambda system, arch, version:
-        "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-05bb793/tcc-0.9.28rc-05bb793.zip",
-        helper_args=helper_args,
-    )
+    if is_windows:
+        download_and_copy(
+            name="tcc",
+            src_func=lambda system, arch, version: ".",
+            dst_path="python/triton/runtime/tcc",
+            override_path=None,
+            version="",
+            url_func=lambda system, arch, version:
+            "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-05bb793/tcc-0.9.28rc-05bb793.zip",
+            helper_args=helper_args,
+        )
 
 
 def add_common_args(parser: argparse.ArgumentParser):
