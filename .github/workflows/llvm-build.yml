@@ -31,13 +31,13 @@ jobs:
       fail-fast: true
       matrix:
         config:
-        # - {runner: 'Ubuntu 22.04', runs_on: 'ubuntu-22.04', target-os: 'ubuntu', arch: 'x64'}
-        # - {runner: 'Ubuntu 22.04 ARM64', runs_on: 'ubuntu-22.04-arm', target-os: 'ubuntu', arch: 'arm64'}
-        # - {runner: 'AlmaLinux 8', runs_on: 'ubuntu-22.04', target-os: 'almalinux', arch: 'x64', container: 'almalinux:8.10-20250411'}
-        # - {runner: 'AlmaLinux 8 ARM64', runs_on: 'ubuntu-22.04-arm', target-os: 'almalinux', arch: 'arm64', container: 'almalinux:8.10-20250411'}
-        # - {runner: 'MacOS X64', runs_on: 'macos-15-intel', target-os: 'macos', arch: 'x64'}
-        # - {runner: 'MacOS ARM64', runs_on: 'macos-15', target-os: 'macos', arch: 'arm64'}
-        # - {runner: 'Windows 2022', runs_on: 'windows-2022', target-os: 'windows', arch: 'x64', msvc_arch: 'amd64'}
+        - {runner: 'Ubuntu 22.04', runs_on: 'ubuntu-22.04', target-os: 'ubuntu', arch: 'x64'}
+        - {runner: 'Ubuntu 22.04 ARM64', runs_on: 'ubuntu-22.04-arm', target-os: 'ubuntu', arch: 'arm64'}
+        - {runner: 'AlmaLinux 8', runs_on: 'ubuntu-22.04', target-os: 'almalinux', arch: 'x64', container: 'almalinux:8.10-20250411'}
+        - {runner: 'AlmaLinux 8 ARM64', runs_on: 'ubuntu-22.04-arm', target-os: 'almalinux', arch: 'arm64', container: 'almalinux:8.10-20250411'}
+        - {runner: 'MacOS X64', runs_on: 'macos-15-intel', target-os: 'macos', arch: 'x64'}
+        - {runner: 'MacOS ARM64', runs_on: 'macos-15', target-os: 'macos', arch: 'arm64'}
+        - {runner: 'Windows 2022', runs_on: 'windows-2022', target-os: 'windows', arch: 'x64', msvc_arch: 'amd64'}
         - {runner: 'Windows 11 ARM64', runs_on: 'windows-11-arm', target-os: 'windows', arch: 'arm64', msvc_arch: 'arm64'}
 
     steps:
