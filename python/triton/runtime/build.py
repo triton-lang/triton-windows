@@ -108,6 +108,9 @@ def _cc_cmd(cc: str, src: str, out: str, include_dirs: list[str], library_dirs: 
     if is_msvc(cc) or is_clang_cl(cc):
         out_base = os.path.splitext(out)[0]
         cc_cmd = [cc, src, "/nologo", "/O2", "/LD", "/wd4819"]
+        if os.name == "nt":
+            # Some headers reference alloca; MSVC exports it as _alloca.
+            cc_cmd += ["/Dalloca=_alloca"]
         if language == "c":
             cc_cmd += ["/std:c11"]
         elif language == "c++":

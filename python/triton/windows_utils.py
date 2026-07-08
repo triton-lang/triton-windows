@@ -55,11 +55,48 @@ def max_version(
     return version
 
 
+def _normalize_arch(arch: Optional[str]) -> str:
+    arch = (arch or "").strip().lower()
+    mapping = {
+        "x64": "x64",
+        "amd64": "x64",
+        "x86_64": "x64",
+        "arm64": "arm64",
+        "aarch64": "arm64",
+    }
+    return mapping.get(arch, "x64")
+
+
+def _target_arch() -> str:
+    return _normalize_arch(
+        os.getenv("VSCMD_ARG_TGT_ARCH")
+        or os.getenv("Platform")
+        or os.getenv("PROCESSOR_ARCHITECTURE")
+        or os.getenv("PROCESSOR_ARCHITEW6432")
+    )
+
+
+def _host_arch() -> str:
+    return _normalize_arch(os.getenv("VSCMD_ARG_HOST_ARCH") or _target_arch())
+
+
+def _msvc_host_dir() -> str:
+    host = _host_arch()
+    return "HostARM64" if host == "arm64" else "Hostx64"
+
+
+def _arch_candidates() -> list[str]:
+    target = _target_arch()
+    return [target] if target == "x64" else [target, "x64"]
+
+
 def check_msvc(msvc_base_path: Path, version: str) -> bool:
+    target_arch = _target_arch()
+    host_dir = _msvc_host_dir()
     return all(x.exists() for x in [
-        msvc_base_path / version / "bin" / "Hostx64" / "x64" / "cl.exe",
+        msvc_base_path / version / "bin" / host_dir / target_arch / "cl.exe",
         msvc_base_path / version / "include" / "vcruntime.h",
-        msvc_base_path / version / "lib" / "x64" / "vcruntime.lib",
+        msvc_base_path / version / "lib" / target_arch / "vcruntime.lib",
     ])
 
 
@@ -178,10 +215,12 @@ def find_msvc(env_only: bool) -> tuple[Optional[str], list[str], list[str]]:
     for f in fs:
         msvc_base_path, version = f()
         if msvc_base_path:
+            target_arch = _target_arch()
+            host_dir = _msvc_host_dir()
             return (
-                str(msvc_base_path / version / "bin" / "Hostx64" / "x64" / "cl.exe"),
+                str(msvc_base_path / version / "bin" / host_dir / target_arch / "cl.exe"),
                 [str(msvc_base_path / version / "include")],
-                [str(msvc_base_path / version / "lib" / "x64")],
+                [str(msvc_base_path / version / "lib" / target_arch)],
             )
 
     if not env_only:
@@ -192,9 +231,10 @@ def find_msvc(env_only: bool) -> tuple[Optional[str], list[str], list[str]]:
 
 
 def check_winsdk(winsdk_base_path: Path, version: str) -> bool:
+    target_arch = _target_arch()
     return all(x.exists() for x in [
         winsdk_base_path / "Include" / version / "ucrt" / "stdlib.h",
-        winsdk_base_path / "Lib" / version / "ucrt" / "x64" / "ucrt.lib",
+        winsdk_base_path / "Lib" / version / "ucrt" / target_arch / "ucrt.lib",
     ])
 
 
@@ -273,6 +313,7 @@ def find_winsdk(env_only: bool) -> tuple[list[str], list[str]]:
     for f in fs:
         winsdk_base_path, version = f()
         if winsdk_base_path:
+            target_arch = _target_arch()
             return (
                 [
                     str(winsdk_base_path / "Include" / version / "shared"),
@@ -280,8 +321,8 @@ def find_winsdk(env_only: bool) -> tuple[list[str], list[str]]:
                     str(winsdk_base_path / "Include" / version / "um"),
                 ],
                 [
-                    str(winsdk_base_path / "Lib" / version / "ucrt" / "x64"),
-                    str(winsdk_base_path / "Lib" / version / "um" / "x64"),
+                    str(winsdk_base_path / "Lib" / version / "ucrt" / target_arch),
+                    str(winsdk_base_path / "Lib" / version / "um" / target_arch),
                 ],
             )
 
@@ -325,16 +366,17 @@ def find_python() -> list[str]:
 
 def check_and_find_cuda(base_path: Path) -> tuple[Optional[str], list[str], list[str]]:
     # pip
-    if all(x.exists() for x in [
-            base_path / "cuda_nvcc" / "bin" / "ptxas.exe",
-            base_path / "cuda_runtime" / "include" / "cuda.h",
-            base_path / "cuda_runtime" / "lib" / "x64" / "cuda.lib",
-    ]):
-        return (
-            str(base_path / "cuda_nvcc" / "bin"),
-            [str(base_path / "cuda_runtime" / "include")],
-            [str(base_path / "cuda_runtime" / "lib" / "x64")],
-        )
+    for arch in _arch_candidates():
+        if all(x.exists() for x in [
+                base_path / "cuda_nvcc" / "bin" / "ptxas.exe",
+                base_path / "cuda_runtime" / "include" / "cuda.h",
+                base_path / "cuda_runtime" / "lib" / arch / "cuda.lib",
+        ]):
+            return (
+                str(base_path / "cuda_nvcc" / "bin"),
+                [str(base_path / "cuda_runtime" / "include")],
+                [str(base_path / "cuda_runtime" / "lib" / arch)],
+            )
 
     # conda
     if all(x.exists() for x in [
@@ -349,16 +391,17 @@ def check_and_find_cuda(base_path: Path) -> tuple[Optional[str], list[str], list
         )
 
     # bundled or system-wide
-    if all(x.exists() for x in [
-            base_path / "bin" / "ptxas.exe",
-            base_path / "include" / "cuda.h",
-            base_path / "lib" / "x64" / "cuda.lib",
-    ]):
-        return (
-            str(base_path / "bin"),
-            [str(base_path / "include")],
-            [str(base_path / "lib" / "x64")],
-        )
+    for arch in _arch_candidates():
+        if all(x.exists() for x in [
+                base_path / "bin" / "ptxas.exe",
+                base_path / "include" / "cuda.h",
+                base_path / "lib" / arch / "cuda.lib",
+        ]):
+            return (
+                str(base_path / "bin"),
+                [str(base_path / "include")],
+                [str(base_path / "lib" / arch)],
+            )
 
     return None, [], []
 
