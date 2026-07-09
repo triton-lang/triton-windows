@@ -97,6 +97,7 @@ Although technically Triton can be used alone, in the following let's assume you
 | 2.10 | 3.6 |
 | 2.11 | 3.6 |
 | 2.12 | 3.7 |
+| 2.13 | 3.7 |
 
 PyTorch 2.3 and older are not supported in this repo.
 
