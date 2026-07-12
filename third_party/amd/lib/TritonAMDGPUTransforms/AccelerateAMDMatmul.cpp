@@ -95,7 +95,11 @@ FailureOr<ScaleDotElemType> mlirTypeToScaledElemType(Type type) {
 // In case a), it will return {numWarp, 1} for the first dot in an attempt to
 // reduce subsequent reduction overhead.
 //
-// TODO: describe b) using terse and intuitive way.
+// In case b), it distributes warps along dim0 first, then dim1. The number of
+// warps along dim0 is capped by shape[0] / instrShape.first to avoid excess
+// register pressure when shape[0] is small (e.g. decode kernels). This also
+// matches the warp layout from the 1st dot, which becomes the dotOperand
+// layout of the 2nd dot.
 //
 // Here is an example for case c). Assume instrShape is 16x16, and the shape is
 // 160x320. So, the CTA worth of data is partitioned into 10x20 grid. This
