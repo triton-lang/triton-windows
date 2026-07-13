@@ -37,6 +37,12 @@ elif is_hip():
         return ["amdhip64"]
 
 
+def _library_names_for_compiler(cc):
+    if os.name == "nt" and is_cuda() and is_tcc(cc):
+        return ["nvcuda" if name == "cuda" else name for name in library_names()]
+    return library_names()
+
+
 def _find_lib():
     """Find a librarian tool. On HIP/Windows, uses llvm-lib from the ROCm SDK."""
     if os.name == "nt" and is_hip():
@@ -346,7 +352,7 @@ int main(int argc, char **argv) {{
         command += [f"/I{x}" for x in include_dirs if x is not None]
         command += ["/link"]
         command += [f"/LIBPATH:{x}" for x in library_dirs()]
-        command += [f"{x}.lib" for x in library_names()]
+        command += [f"{x}.lib" for x in _library_names_for_compiler(cc)]
         command += [f"/LIBPATH:{dir}", "kernel.lib", f"/OUT:{exe}"]
     else:
         command = [cc, "test.c"]
@@ -354,7 +360,7 @@ int main(int argc, char **argv) {{
             command += ["-D_Py_USE_GCC_BUILTIN_ATOMICS"]
         command += [f"-I{x}" for x in include_dirs if x is not None]
         command += [f"-L{x}" for x in library_dirs()]
-        command += [f"-l{x}" for x in library_names()]
+        command += [f"-l{x}" for x in _library_names_for_compiler(cc)]
         command += ["-L", dir, "-l", "kernel", "-o", exe]
 
     subprocess.run(command, check=True, cwd=dir)

@@ -263,6 +263,20 @@ def _validate_sha256(archive_path, url, expected_sha256):
 
 def _download_and_extract(url, remove_dir, extract_dir, label, archives_path, expected_sha256=None):
     archive_path = _get_archive_path(archives_path, url)
+    # Skip downloading if archive already exists in cache with valid SHA256
+    if os.path.exists(archive_path):
+        try:
+            _validate_sha256(archive_path, url, expected_sha256)
+            print(f"Using cached {label}: {archive_path}", file=sys.stdout, flush=True)
+            with contextlib.suppress(Exception):
+                shutil.rmtree(remove_dir)
+            os.makedirs(extract_dir, exist_ok=True)
+            _extract_archive(archive_path, extract_dir)
+            os.remove(archive_path)
+            return
+        except RuntimeError:
+            # SHA256 mismatch, continue to redownload
+            pass
     _download_file(url, archive_path, f"downloading {label}")
     _validate_sha256(archive_path, url, expected_sha256)
     with contextlib.suppress(Exception):
