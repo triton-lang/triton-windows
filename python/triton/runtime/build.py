@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import sysconfig
 import tempfile
 import logging
@@ -163,10 +164,18 @@ def _build(name: str, src: str, srcdir: str, library_dirs: list[str], include_di
     # Don't append in place
     include_dirs = include_dirs + [srcdir, py_include_dir, *custom_backend_dirs]
     if os.name == "nt":
-        library_dirs = library_dirs + find_python()
         version = sysconfig.get_python_version().replace(".", "")
         if sysconfig.get_config_var("Py_GIL_DISABLED"):
             version += "t"
+        if is_tcc(cc):
+            python_dirs = []
+            for python_base_path in [sys.exec_prefix, sys.base_exec_prefix, os.path.dirname(sys.executable)]:
+                if os.path.exists(os.path.join(python_base_path, f"python{version}.dll")):
+                    python_dirs.append(python_base_path)
+            system_root = os.environ.get("SystemRoot", r"C:\Windows")
+            library_dirs = library_dirs + (python_dirs or find_python()) + [os.path.join(system_root, "System32")]
+        else:
+            library_dirs = library_dirs + find_python()
         libraries = libraries + [f"python{version}"]
     if is_msvc(cc) or is_clang_cl(cc):
         _, msvc_winsdk_inc_dirs, msvc_winsdk_lib_dirs = find_msvc_winsdk()
@@ -184,6 +193,10 @@ def _build(name: str, src: str, srcdir: str, library_dirs: list[str], include_di
 
 
 def _library_flag(lib: str, cc: str) -> str:
+    if os.name == "nt" and is_tcc(cc):
+        if lib.lower() == "cuda":
+            lib = "nvcuda"
+        return f"-l{lib}"
     if os.name == "nt" and not is_tcc(cc):
         if not lib.lower().endswith(".lib"):
             lib = lib + ".lib"
