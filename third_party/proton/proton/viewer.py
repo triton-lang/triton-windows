@@ -215,7 +215,7 @@ def format_frames(gf, format):
     return gf
 
 
-def filter_frames(gf, include=None, exclude=None, threshold=None, metric=None):
+def filter_frames(gf, include=None, exclude=None, threshold=None, metrics=None):
     if include:
         query = f"""
 MATCH ("*")->(".", p)->("*")
@@ -230,8 +230,13 @@ WHERE p."name" =~ "{exclude}"
         query = NegationQuery(inclusion_query)
         gf = gf.filter(query, squash=True)
     if threshold:
-        query = ["*", {metric: f">= {threshold}"}]
-        gf = gf.filter(query, squash=True)
+        if metrics is None:
+            metrics = []
+        elif isinstance(metrics, str):
+            metrics = [metrics]
+        for metric in metrics:
+            query = ["*", {metric: f">= {threshold}"}]
+            gf = gf.filter(query, squash=True)
     return gf
 
 
@@ -269,8 +274,7 @@ def read(filename):
 def parse(metrics, filename, include=None, exclude=None, threshold=None):
     gf, inclusive_metrics, exclusive_metrics, device_info = read(filename)
     metrics = derive_metrics(gf, metrics, inclusive_metrics, exclusive_metrics, device_info)
-    # TODO: generalize to support multiple metrics, not just the first one
-    gf = filter_frames(gf, include, exclude, threshold, metrics[0])
+    gf = filter_frames(gf, include, exclude, threshold, metrics)
     return gf, metrics
 
 
@@ -365,7 +369,7 @@ proton-viewer -e ".*test.*" path/to/file.json
         type=float,
         default=None,
         help=
-        "Exclude frames(kernels) whose metrics are below the given threshold. This filter only applies on the first metric.",
+        "Exclude frames(kernels) whose metrics are below the given threshold. This filter applies on all specified metrics."
     )
     argparser.add_argument(
         "-d",
