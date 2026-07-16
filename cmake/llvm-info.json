@@ -1,6 +1,9 @@
 {
   "llvm_hash": "850a2b1b975c061ae0fc982ba68064d305485cb2",
   "build_number": 1,
+  "urls": {
+    "windows-arm64": "https://github.com/chinazhangchao/triton-windows/releases/download/triton_windows-3.8.0/llvm-62b7cf96-windows-arm64-2.tar.gz"
+  },
   "sha256sum": {
     "almalinux-arm64": "2a3a428cbc4720d04423424e41018d76ccc61faf7f1eae02ac597fdd1315248a",
     "almalinux-x64": "23169a18f34a73f1a41bc7e51e3779138f24cdbfeef9e382298ef66e69b5c0ad",
