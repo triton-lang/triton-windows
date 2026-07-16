@@ -1,0 +1,38 @@
+name: Build TinyCC (Windows ARM64)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test TinyCC
+    runs-on: windows-11-arm
+    timeout-minutes: 10
+
+    steps:
+      - name: Clone TinyCC
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://repo.or.cz/tinycc.git tinycc
+          $commit = git -C tinycc rev-parse --short=7 HEAD
+          "TCC_COMMIT=$commit" >> $env:GITHUB_ENV
+
+      - name: Build and test TinyCC
+        shell: cmd
+        run: |
+          cd tinycc\win32
+          for /f "delims=" %%i in ('vswhere.exe -latest -property installationPath') do call "%%i\VC\Auxiliary\Build\vcvarsall.bat" arm64
+          call build-tcc.bat -c cl -t arm64 -i ..\tcc-windows-arm64
+          if errorlevel 1 exit /b %errorlevel%
+          cd ..\tests
+          call test-win32.bat -c clang all -k
+
+      - name: Upload TinyCC
+        uses: actions/upload-artifact@v7
+        with:
+          name: tcc-windows-arm64-${{ env.TCC_COMMIT }}
+          path: tinycc\tcc-windows-arm64
+          if-no-files-found: error
