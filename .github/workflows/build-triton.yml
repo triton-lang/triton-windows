@@ -59,9 +59,9 @@ jobs:
           "commit_sha=$(git rev-parse HEAD)" >> $Env:GITHUB_OUTPUT
 
   build-triton:
-    name: Build ${{ inputs.git_tag }} @ ${{ needs.resolve-ref.outputs.commit_sha }}
+    name: Build Windows ARM64 ${{ inputs.git_tag }} @ ${{ needs.resolve-ref.outputs.commit_sha }}
     needs: resolve-ref
-    runs-on: windows-2022
+    runs-on: windows-11-arm
     permissions:
       contents: read
       id-token: write
@@ -79,12 +79,16 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+          architecture: 'arm64'
 
       - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: arm64
 
       - name: Build wheels
         shell: powershell
         env:
+          LLVM_WINDOWS_ARM64_URL: https://github.com/chinazhangchao/triton-windows/releases/download/triton_windows-3.8.0/llvm-62b7cf96-windows-arm64-2.tar.gz
           TRITON_WHEEL_VERSION_SUFFIX: ${{ inputs.triton_wheel_version_suffix }}
           TRITON_BUILD_BINARY: ${{ inputs.triton_build_binary }}
           TRITON_BUILD_PROTON: ${{ inputs.triton_build_proton }}
@@ -102,6 +106,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install --upgrade cibuildwheel
 
+          $llvmInstallDir = "llvm-62b7cf96-windows-arm64-2"
+          $llvmRoot = Join-Path $Env:RUNNER_TEMP "llvm"
+          $llvmArchive = Join-Path $Env:RUNNER_TEMP "$llvmInstallDir.tar.gz"
+          New-Item -ItemType Directory -Force -Path $llvmRoot | Out-Null
+          Invoke-WebRequest -Uri $Env:LLVM_WINDOWS_ARM64_URL -OutFile $llvmArchive
+          tar -xzf $llvmArchive -C $llvmRoot
+          $Env:LLVM_SYSPATH = Join-Path $llvmRoot $llvmInstallDir
+          $Env:TRITON_LLVM_SYSTEM_SUFFIX = "windows-arm64"
+          if (-not (Test-Path (Join-Path $Env:LLVM_SYSPATH "lib/cmake/llvm")))
+          {
+            throw "LLVM install was not found at $Env:LLVM_SYSPATH"
+          }
+
           cd triton-windows
           git fetch origin "+refs/heads/*:refs/remotes/origin/*"
           git rev-parse HEAD
@@ -113,9 +130,10 @@ jobs:
           }
           else
           {
-            $Env:CIBW_BUILD = "cp3{10,11,12,13,14}-win_amd64"
+            $Env:CIBW_BUILD = "cp311-win_arm64 cp312-win_arm64 cp313-win_arm64 cp314-win_arm64"
           }
 
+          $Env:CIBW_ARCHS_WINDOWS = "ARM64"
           $Env:CIBW_BUILD_VERBOSITY = "1"
 
           if (Test-Path -Path setup.py)
@@ -134,25 +152,20 @@ jobs:
       # Currently actions/upload-artifact only supports uploading one file at a time when archive is disabled
       - uses: actions/upload-artifact@v7
         with:
-          path: triton-windows/wheelhouse/*-cp310-cp310-win_amd64.whl
+          path: triton-windows/wheelhouse/*-cp311-cp311-win_arm64.whl
           archive: false
 
       - uses: actions/upload-artifact@v7
         with:
-          path: triton-windows/wheelhouse/*-cp311-cp311-win_amd64.whl
+          path: triton-windows/wheelhouse/*-cp312-cp312-win_arm64.whl
           archive: false
 
       - uses: actions/upload-artifact@v7
         with:
-          path: triton-windows/wheelhouse/*-cp312-cp312-win_amd64.whl
+          path: triton-windows/wheelhouse/*-cp313-cp313-win_arm64.whl
           archive: false
 
       - uses: actions/upload-artifact@v7
         with:
-          path: triton-windows/wheelhouse/*-cp313-cp313-win_amd64.whl
-          archive: false
-
-      - uses: actions/upload-artifact@v7
-        with:
-          path: triton-windows/wheelhouse/*-cp314-cp314-win_amd64.whl
+          path: triton-windows/wheelhouse/*-cp314-cp314-win_arm64.whl
           archive: false
