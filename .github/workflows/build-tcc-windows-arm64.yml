@@ -34,5 +34,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: tcc-windows-arm64-${{ env.TCC_COMMIT }}
-          path: tinycc\tcc-windows-arm64
+          path: |
+            tinycc\tcc-windows-arm64\libtcc.dll
+            tinycc\tcc-windows-arm64\tcc.exe
+            tinycc\tcc-windows-arm64\lib
+            tinycc\tcc-windows-arm64\include
           if-no-files-found: error
