@@ -613,7 +613,7 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
             override_path=None,
             version="",
             url_func=lambda system, arch, version:
-            "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-05bb793/tcc-0.9.28rc-05bb793.zip",
+            "https://github.com/chinazhangchao/triton-windows/actions/runs/29477689751/artifacts/8367217179",
             helper_args=helper_args,
         )
 
