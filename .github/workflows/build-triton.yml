@@ -1,0 +1,158 @@
+name: Build Triton
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_tag:
+        description: Git tag
+        required: true
+        type: string
+        default: main-windows
+      triton_wheel_version_suffix:
+        description: Triton wheel version suffix
+        required: false
+        type: string
+        default: ''
+      triton_build_binary:
+        description: Build binary executables
+        required: true
+        type: string
+        default: '0'
+      triton_build_proton:
+        description: Build Proton
+        required: true
+        type: string
+        default: '0'
+      triton_build_ut:
+        description: Build C++ unit tests
+        required: true
+        type: string
+        default: '0'
+      triton_rel_build_with_asserts:
+        description: Build with PDB and asserts
+        required: true
+        type: string
+        default: '0'
+      cibw_build_override:
+        description: CIBW_BUILD override
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  resolve-ref:
+    runs-on: windows-2022
+    permissions:
+      contents: read
+    outputs:
+      commit_sha: ${{ steps.resolve.outputs.commit_sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.git_tag }}
+          path: triton-windows
+
+      - id: resolve
+        shell: powershell
+        run: |
+          cd triton-windows
+          "commit_sha=$(git rev-parse HEAD)" >> $Env:GITHUB_OUTPUT
+
+  build-triton:
+    name: Build ${{ inputs.git_tag }} @ ${{ needs.resolve-ref.outputs.commit_sha }}
+    needs: resolve-ref
+    runs-on: windows-2022
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Configure Git
+        shell: powershell
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve-ref.outputs.commit_sha }}
+          path: triton-windows
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build wheels
+        shell: powershell
+        env:
+          TRITON_WHEEL_VERSION_SUFFIX: ${{ inputs.triton_wheel_version_suffix }}
+          TRITON_BUILD_BINARY: ${{ inputs.triton_build_binary }}
+          TRITON_BUILD_PROTON: ${{ inputs.triton_build_proton }}
+          TRITON_BUILD_UT: ${{ inputs.triton_build_ut }}
+          TRITON_REL_BUILD_WITH_ASSERTS: ${{ inputs.triton_rel_build_with_asserts }}
+          CIBW_BUILD_OVERRIDE: ${{ inputs.cibw_build_override }}
+        run: |
+          # Get-ChildItem Env:
+          # (Get-WmiObject Win32_Processor).Name
+          # (Get-WmiObject Win32_PhysicalMemory | Measure-Object -Property Capacity -Sum).Sum / 1GB
+          # (Get-WmiObject Win32_VideoController).Name
+
+          # Get-Command -All python
+          # python --version
+          python -m pip install --upgrade pip
+          pip install --upgrade cibuildwheel
+
+          cd triton-windows
+          git fetch origin "+refs/heads/*:refs/remotes/origin/*"
+          git rev-parse HEAD
+          git for-each-ref --contains HEAD --format "%(refname:short)"
+
+          if ($Env:CIBW_BUILD_OVERRIDE)
+          {
+            $Env:CIBW_BUILD = $Env:CIBW_BUILD_OVERRIDE
+          }
+          else
+          {
+            $Env:CIBW_BUILD = "cp3{10,11,12,13,14}-win_amd64"
+          }
+
+          $Env:CIBW_BUILD_VERBOSITY = "1"
+
+          if (Test-Path -Path setup.py)
+          {
+            cibuildwheel .
+          }
+          else
+          {
+            cibuildwheel python
+          }
+
+      - uses: actions/attest@v4
+        with:
+          subject-path: triton-windows/wheelhouse/*.whl
+
+      # Currently actions/upload-artifact only supports uploading one file at a time when archive is disabled
+      - uses: actions/upload-artifact@v7
+        with:
+          path: triton-windows/wheelhouse/*-cp310-cp310-win_amd64.whl
+          archive: false
+
+      - uses: actions/upload-artifact@v7
+        with:
+          path: triton-windows/wheelhouse/*-cp311-cp311-win_amd64.whl
+          archive: false
+
+      - uses: actions/upload-artifact@v7
+        with:
+          path: triton-windows/wheelhouse/*-cp312-cp312-win_amd64.whl
+          archive: false
+
+      - uses: actions/upload-artifact@v7
+        with:
+          path: triton-windows/wheelhouse/*-cp313-cp313-win_amd64.whl
+          archive: false
+
+      - uses: actions/upload-artifact@v7
+        with:
+          path: triton-windows/wheelhouse/*-cp314-cp314-win_amd64.whl
+          archive: false
