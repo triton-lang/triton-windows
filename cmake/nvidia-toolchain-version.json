@@ -1,11 +1,11 @@
 {
-  "ptxas-blackwell": "13.3.33",
-  "ptxas": "12.9.86",
-  "cuobjdump": "13.1.80",
-  "nvdisasm": "13.1.80",
-  "cudacrt": "13.1.80",
-  "cudart": "13.1.80",
-  "cupti": "12.8.90",
-  "cupti-windows": "13.3.35",
-  "cupti-blackwell": "13.3.35"
+  "ptxas-blackwell": "13.4.46",
+  "ptxas": "13.4.46",
+  "cuobjdump": "13.4.46",
+  "nvdisasm": "13.4.46",
+  "cudacrt": "13.4.46",
+  "cudart": "13.4.46",
+  "cupti": "13.4.46",
+  "cupti-windows": "13.4.46",
+  "cupti-blackwell": "13.4.46"
 }
