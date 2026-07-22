@@ -88,6 +88,8 @@ jobs:
       - name: Build wheels
         shell: powershell
         env:
+          CUDA_WINDOWS_ARM64_SHA256: a1f68c81160b16d519c4087788b9c07de41306c3f1b872471ceee0996621374d
+          CUDA_WINDOWS_ARM64_URL: https://packages.nvidia.com/prerelease/cuda/13.4.0/local_installers/cuda_13.4.0_windows_arm64.exe
           LLVM_WINDOWS_ARM64_URL: https://github.com/chinazhangchao/triton-windows/releases/download/triton_win_arm64-3.8.0/llvm-62b7cf96-windows-arm64-2.tar.gz
           TRITON_WHEEL_VERSION_SUFFIX: ${{ inputs.triton_wheel_version_suffix }}
           TRITON_BUILD_BINARY: ${{ inputs.triton_build_binary }}
@@ -105,6 +107,51 @@ jobs:
           # python --version
           python -m pip install --upgrade pip
           pip install --upgrade cibuildwheel
+
+          $cudaInstaller = Join-Path $Env:RUNNER_TEMP "cuda_13.4.0_windows_arm64.exe"
+          curl.exe --fail --location --retry 5 --retry-delay 5 --continue-at - `
+            --output $cudaInstaller $Env:CUDA_WINDOWS_ARM64_URL
+          if ($LASTEXITCODE -ne 0)
+          {
+            throw "Failed to download CUDA installer"
+          }
+          $cudaInstallerSha256 = (Get-FileHash -Algorithm SHA256 $cudaInstaller).Hash.ToLowerInvariant()
+          if ($cudaInstallerSha256 -ne $Env:CUDA_WINDOWS_ARM64_SHA256)
+          {
+            throw "CUDA installer SHA256 mismatch: $cudaInstallerSha256"
+          }
+
+          $cudaInstall = Start-Process -FilePath $cudaInstaller -ArgumentList "-s" -Wait -PassThru
+          if ($cudaInstall.ExitCode -notin @(0, 3010))
+          {
+            throw "CUDA installer exited with code $($cudaInstall.ExitCode)"
+          }
+          Remove-Item $cudaInstaller
+
+          $cudaRoot = Join-Path $Env:ProgramFiles "NVIDIA GPU Computing Toolkit\CUDA\v13.4"
+          $ptxasPath = Join-Path $cudaRoot "bin\ptxas.exe"
+          $cudaHeaderPath = Join-Path $cudaRoot "include\cuda.h"
+          $cudaLibraryPath = Join-Path $cudaRoot "lib\arm64\cuda.lib"
+          foreach ($cudaPath in @($ptxasPath, $cudaHeaderPath, $cudaLibraryPath))
+          {
+            if (-not (Test-Path $cudaPath))
+            {
+              throw "CUDA install file was not found at $cudaPath"
+            }
+          }
+
+          $nvidiaBackend = Join-Path $PWD "triton-windows\third_party\nvidia\backend"
+          New-Item -ItemType Directory -Force -Path `
+            (Join-Path $nvidiaBackend "bin"), `
+            (Join-Path $nvidiaBackend "include"), `
+            (Join-Path $nvidiaBackend "lib\arm64") | Out-Null
+          Copy-Item $ptxasPath (Join-Path $nvidiaBackend "bin\ptxas.exe") -Force
+          Copy-Item $cudaHeaderPath (Join-Path $nvidiaBackend "include\cuda.h") -Force
+          Copy-Item $cudaLibraryPath (Join-Path $nvidiaBackend "lib\arm64\cuda.lib") -Force
+
+          $Env:CUDA_PATH = $cudaRoot
+          $Env:TRITON_PTXAS_PATH = $ptxasPath
+          $Env:TRITON_CUDART_PATH = Join-Path $cudaRoot "include"
 
           $llvmInstallDir = "llvm-62b7cf96-windows-arm64-2"
           $llvmRoot = Join-Path $Env:RUNNER_TEMP "llvm"
