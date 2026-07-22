@@ -88,7 +88,7 @@ jobs:
       - name: Build wheels
         shell: powershell
         env:
-          LLVM_WINDOWS_ARM64_URL: https://github.com/chinazhangchao/triton-windows/releases/download/triton_windows-3.8.0/llvm-62b7cf96-windows-arm64-2.tar.gz
+          LLVM_WINDOWS_ARM64_URL: https://github.com/chinazhangchao/triton-windows/releases/download/triton_win_arm64-3.8.0/llvm-62b7cf96-windows-arm64-2.tar.gz
           TRITON_WHEEL_VERSION_SUFFIX: ${{ inputs.triton_wheel_version_suffix }}
           TRITON_BUILD_BINARY: ${{ inputs.triton_build_binary }}
           TRITON_BUILD_PROTON: ${{ inputs.triton_build_proton }}
