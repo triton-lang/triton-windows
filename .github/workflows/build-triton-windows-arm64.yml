@@ -106,7 +106,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install --upgrade cibuildwheel
 
-          $llvmInstallDir = "llvm-62b7cf96-windows-arm64-2"
+          $llvmInstallDir = [IO.Path]::GetFileNameWithoutExtension([IO.Path]::GetFileNameWithoutExtension($Env:LLVM_WINDOWS_ARM64_URL))
           $llvmRoot = Join-Path $Env:RUNNER_TEMP "llvm"
           $llvmArchive = Join-Path $Env:RUNNER_TEMP "$llvmInstallDir.tar.gz"
           New-Item -ItemType Directory -Force -Path $llvmRoot | Out-Null
