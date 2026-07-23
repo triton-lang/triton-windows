@@ -1,5 +1,6 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Diagnostics.h"
+#include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "mlir/Support/DebugStringHelper.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
 #include "triton/Dialect/Triton/IR/Utility.h"
@@ -13,6 +14,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/LogicalResult.h"
 #include "llvm/Support/MathExtras.h"
+#include <type_traits>
 
 // Provide custom directive handlers for declarative assemblyFormat.
 // They must be visible before including the generated op classes.
@@ -1173,6 +1175,18 @@ LogicalResult MemDescSubsliceOp::verify() {
 
 // -- WarpSpecializeOp --
 
+// Helper to construct a RegionSuccessor that represents "return to parent".
+// Newer MLIR uses RegionSuccessor(Operation *); older MLIR uses the static
+// RegionSuccessor::parent() factory. We detect which API is available via
+// std::is_constructible so that this code compiles against both versions.
+template <typename T = RegionSuccessor>
+static T makeParentRegionSuccessor(Operation *op) {
+  if constexpr (std::is_constructible_v<T, Operation *>)
+    return T(op);
+  else
+    return T::parent();
+}
+
 RegionRange WarpSpecializeOp::getPartitionRegions() {
   return getPartitionOp().getPartitionRegions();
 }
@@ -1201,12 +1215,12 @@ void WarpSpecializeOp::getSuccessorRegions(
   // And the default region branches transparently back to the parent.
   if (src.getTerminatorPredecessorOrNull()->getParentRegion() ==
       &getDefaultRegion())
-    successors.push_back(RegionSuccessor(getOperation()));
+    successors.push_back(makeParentRegionSuccessor(getOperation()));
 }
 
 ValueRange WarpSpecializeOp::getSuccessorInputs(RegionSuccessor successor) {
   // When returning to parent, the successor inputs are the op results.
-  return successor.isOperation() ? getResults() : ValueRange();
+  return !successor.getSuccessor() ? getResults() : ValueRange();
 }
 
 void WarpSpecializePartitionsOp::getSuccessorRegions(
