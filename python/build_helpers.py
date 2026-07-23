@@ -485,16 +485,6 @@ def write_thirdparty_cmake_vars(output: str, packages: list[str], helper_args: B
 # --- nvidia toolchain helpers -----
 
 
-def _get_nvidia_download_arch(system: str, machine: str) -> str:
-    if machine in ("AMD64", "x86_64"):
-        return "x86_64"
-    if machine in ("ARM64", "arm64", "aarch64"):
-        # NVIDIA calls Linux ARM64 packages "sbsa", while native Windows
-        # ARM64 packages and their architecture-specific directories use "arm64".
-        return "arm64" if system == "Windows" else "sbsa"
-    return machine
-
-
 def download_and_copy(name, src_func, dst_path, override_path, version, url_func, helper_args: BuildHelperArgs):
     if helper_args.offline_build:
         return
@@ -503,7 +493,11 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
         return
     base_dir = get_base_dir()
     system = platform.system()
-    arch = _get_nvidia_download_arch(system, platform.machine())
+    arch = platform.machine()
+    # NOTE: This might be wrong for jetson if both grace chips and jetson chips return aarch64
+    # On Windows ARM64, platform.machine() returns "ARM64". Map it to "x86_64" so we
+    # download Windows x64 NVIDIA headers, which are compatible for compilation on ARM64.
+    arch = {"AMD64": "x86_64", "ARM64": "x86_64", "arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
     supported = {"Linux": "linux", "Darwin": "linux", "Windows": "windows"}
     url = url_func(supported[system], arch, version)
     src_path = src_func(supported[system], arch, version)
@@ -534,10 +528,7 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
         nvidia_toolchain_version = json.load(nvidia_version_file)
 
     exe_extension = sysconfig.get_config_var("EXE")
-    system = platform.system()
-    is_windows = system == "Windows"
-    host_download_arch = _get_nvidia_download_arch(system, platform.machine())
-    windows_lib_arch = "arm64" if host_download_arch == "arm64" else "x64"
+    is_windows = platform.system() == "Windows"
     archive_extension = ".zip" if is_windows else ".tar.xz"
     cupti_lib_version = nvidia_toolchain_version["cupti-windows" if is_windows else "cupti"]
     download_and_copy(
@@ -619,9 +610,8 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
         )
         download_and_copy(
             name="nvidia/cudart-" + nvidia_toolchain_version["cudart"],
-            src_func=lambda system, arch, version:
-            f"cuda_cudart-{system}-{arch}-{version}-archive/lib/{windows_lib_arch}/cuda.lib",
-            dst_path=f"third_party/nvidia/backend/lib/{windows_lib_arch}/cuda.lib",
+            src_func=lambda system, arch, version: f"cuda_cudart-{system}-{arch}-{version}-archive/lib/x64/cuda.lib",
+            dst_path="third_party/nvidia/backend/lib/x64/cuda.lib",
             override_path=helper_args.cudart_path,
             version=nvidia_toolchain_version["cudart"],
             url_func=lambda system, arch, version:
