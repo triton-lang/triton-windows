@@ -106,7 +106,7 @@ jobs:
           # Get-Command -All python
           # python --version
           python -m pip install --upgrade pip
-          pip install --upgrade cibuildwheel
+          python -m pip install --upgrade cibuildwheel py7zr
 
           $cudaInstaller = Join-Path $Env:RUNNER_TEMP "cuda_13.4.0_windows_arm64.exe"
           curl.exe --fail --location --retry 5 --retry-delay 5 --continue-at - `
@@ -121,14 +121,16 @@ jobs:
             throw "CUDA installer SHA256 mismatch: $cudaInstallerSha256"
           }
 
-          $cudaInstall = Start-Process -FilePath $cudaInstaller -ArgumentList "-s" -Wait -PassThru
-          if ($cudaInstall.ExitCode -notin @(0, 3010))
+          $cudaBase = Join-Path $Env:RUNNER_TEMP "cuda"
+          $cudaExtractor = Join-Path $PWD "triton-windows\.github\scripts\extract_cuda.py"
+          python $cudaExtractor $cudaInstaller $cudaBase
+          if ($LASTEXITCODE -ne 0)
           {
-            throw "CUDA installer exited with code $($cudaInstall.ExitCode)"
+            throw "Failed to extract CUDA installer"
           }
           Remove-Item $cudaInstaller
 
-          $cudaRoot = Join-Path $Env:ProgramFiles "NVIDIA GPU Computing Toolkit\CUDA\v13.4"
+          $cudaRoot = Join-Path $cudaBase "cuda_root"
           $ptxasPath = Join-Path $cudaRoot "bin\ptxas.exe"
           $cudaHeaderPath = Join-Path $cudaRoot "include\cuda.h"
           $cudaLibraryPath = Join-Path $cudaRoot "lib\arm64\cuda.lib"
