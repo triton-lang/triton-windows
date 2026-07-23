@@ -1,4 +1,4 @@
-name: Build Triton
+name: Build Triton (Windows ARM64)
 
 on:
   workflow_dispatch:
