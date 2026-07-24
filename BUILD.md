@@ -6,7 +6,7 @@
 * `main-windows-staged` is used to run CI when we are rebasing `main-windows` over the upstream.
 * `release/*.*.x-windows` is based on the corresponding `release/*.*.x` and contains Windows support code cherry-picked from `main-windows`.
 
-Pull requests should be made against `main-windows`, unless it's for a specific Triton version.
+Pull requests should be made against `main-windows`, unless it's for a specific Triton version. Before opening a PR, please rebase your changes over the latest `main-windows` (or the specific Triton version).
 
 We prefer rebasing `main-windows` over the upstream rather than merging or cherry-picking the upstream. This means `main-windows` is often force-pushed.
 
