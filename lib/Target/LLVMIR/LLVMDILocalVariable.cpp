@@ -200,7 +200,7 @@ struct LLVMDILocalVariablePass
     auto subprogramAttr = LLVM::DISubprogramAttr::get(
         context, recId, /*isRecSelf=*/true, id, compileUnitAttr, fileAttr,
         funcNameAttr, funcNameAttr, fileAttr, /*line=*/line, /*scopeline=*/line,
-        subprogramFlags, subroutineTypeAttr, /*retainedNodes=*/{},
+        subprogramFlags, subroutineTypeAttr, /*retainNodes=*/{},
         /*annotations=*/{});
 
     return subprogramAttr;
