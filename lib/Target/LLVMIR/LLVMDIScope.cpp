@@ -142,7 +142,7 @@ struct LLVMDIScopePass : public impl::LLVMDIScopeBase<LLVMDIScopePass> {
         context, recId, isRecSelf, id, compileUnitAttr, fileAttr, funcNameAttr,
         funcNameAttr, fileAttr,
         /*line=*/line, /*scopeline=*/line, subprogramFlags, subroutineTypeAttr,
-        /*retainedNodes=*/{}, /*annotations=*/{});
+        /*retainNodes=*/{}, /*annotations=*/{});
 
     funcOp->setLoc(FusedLoc::get(context, {loc}, subprogramAttr));
   }
