@@ -69,11 +69,8 @@ def _normalize_arch(arch: Optional[str]) -> str:
 
 def _target_arch() -> str:
     return _normalize_arch(
-        os.getenv("VSCMD_ARG_TGT_ARCH")
-        or os.getenv("Platform")
-        or os.getenv("PROCESSOR_ARCHITECTURE")
-        or os.getenv("PROCESSOR_ARCHITEW6432")
-    )
+        os.getenv("VSCMD_ARG_TGT_ARCH") or os.getenv("Platform") or os.getenv("PROCESSOR_ARCHITECTURE")
+        or os.getenv("PROCESSOR_ARCHITEW6432"))
 
 
 def _host_arch() -> str:
