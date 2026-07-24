@@ -384,7 +384,8 @@ def get_llvm_package_info(helper_args: BuildHelperArgs):
         return Package("llvm", "LLVM-C.lib", "", "LLVM_INCLUDE_DIRS", "LLVM_LIBRARY_DIR", "LLVM_SYSPATH")
     rev = llvm_info["llvm_hash"][:8]
     build_number = llvm_info["build_number"]
-    name = f"llvm-{rev}-{system_suffix}-{build_number}"
+    default_name = f"llvm-{rev}-{system_suffix}-{build_number}"
+    name = llvm_info.get("package_names", {}).get(system_suffix, default_name)
     # Create a stable symlink that doesn't include revision
     sym_name = f"llvm-{system_suffix}"
     url = _get_llvm_package_url(llvm_info, system_suffix, name)
@@ -627,7 +628,9 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
             override_path=None,
             version="",
             url_func=lambda system, arch, version:
-            "https://github.com/chinazhangchao/triton-windows/releases/download/triton_win_arm64-3.8.0/tcc-windows-arm64-d9d02c5.zip",
+            "https://github.com/chinazhangchao/triton-windows/releases/download/triton_win_arm64-3.8.0/tcc-windows-arm64-d9d02c5.zip"
+            if arch == "arm64" else
+            "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-05bb793/tcc-0.9.28rc-05bb793.zip",
             helper_args=helper_args,
         )
 
