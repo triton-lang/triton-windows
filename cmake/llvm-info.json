@@ -1,6 +1,9 @@
 {
   "llvm_hash": "850a2b1b975c061ae0fc982ba68064d305485cb2",
   "build_number": 1,
+  "package_names": {
+    "windows-arm64": "llvm-909ba8d3-windows-arm64-1"
+  },
   "urls": {
     "windows-arm64": "https://github.com/chinazhangchao/triton-windows/releases/download/triton_win_arm64-3.8.0/llvm-909ba8d3-windows-arm64-1.tar.gz"
   },
