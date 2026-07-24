@@ -11,6 +11,7 @@ Based on [andreigh](https://github.com/andreigh/triton/tree/windows), [wkpark](h
 * Nvidia GPU is supported
     * For AMD GPU, we're beginning to add support in this repo, see https://github.com/triton-lang/triton-windows/issues/2
     * For older AMD GPUs that are not supported by TheRock, [ComfyUI-Zluda](https://github.com/patientx/ComfyUI-Zluda) has a lot of information. Despite the name, they have information for both ZLUDA and ROCm. They use https://github.com/lshqqytiger/triton , which is based on https://github.com/Repeerc/triton-amdgpu-windows
+    * For Intel XPU, see https://github.com/intel/intel-xpu-backend-for-triton . They have Windows support.
 * On free-threaded Python (Python 3.14t), it works with MSVC and clang-cl, but the bundled TinyCC needs more tests
 * Proton and GSan are not actively maintained in this repo. If you want to try them, you can build from source
 
