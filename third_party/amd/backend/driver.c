@@ -63,6 +63,7 @@ static inline const char *dlerror(void) {
   return dlerror_buf[0] ? dlerror_buf : NULL;
 }
 #else
+#include <alloca.h>
 #include <dlfcn.h>
 #endif
 
