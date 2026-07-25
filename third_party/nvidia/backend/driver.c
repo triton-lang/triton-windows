@@ -2,10 +2,11 @@
 #include "cuda.h"
 
 #ifndef _WIN32
+#include <alloca.h>
 #include <dlfcn.h>
-#include <malloc.h>
 #else
 #define WIN32_LEAN_AND_MEAN
+#include <malloc.h>
 #include <windows.h>
 #endif
 
