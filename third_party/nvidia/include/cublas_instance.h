@@ -42,7 +42,7 @@ private:
       size_t, cudaStream_t);
 
 #ifdef _WIN32
-  static constexpr const char *name = "cublasLt64_12.dll";
+  static constexpr const char *name = "cublasLt64_13.dll";
 #else
   static constexpr const char *name = "libcublas.so";
 #endif
