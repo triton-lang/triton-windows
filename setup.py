@@ -700,14 +700,15 @@ def download_and_copy_dependencies():
         )
 
     if platform.system() == "Windows":
+        tinycc_version = "0.9.28rc-1d8b731"
         download_and_copy(
-            name="tcc",
+            name=f"tcc/tcc-{tinycc_version}",
             src_func=lambda system, arch, version: ".",
             dst_path="python/triton/runtime/tcc",
             variable="TRITON_TCC_PATH",
-            version="",
+            version=tinycc_version,
             url_func=lambda system, arch, version:
-            "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-05bb793/tcc-0.9.28rc-05bb793.zip",
+            f"https://github.com/woct0rdho/tinycc/releases/download/v{version}/tcc-{version}-windows-x64.zip",
         )
 
 
