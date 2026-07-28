@@ -243,7 +243,7 @@ struct LLVMDILocalVariablePass
       LLVM::DITypeAttr typeAttr;
     };
     llvm::SmallVector<ArgInfo> argInfos;
-    llvm::SmallVector<mlir::Attribute> retainedNodes;
+    llvm::SmallVector<mlir::LLVM::DINodeAttr> retainedNodes;
 
     for (unsigned idx = resNum; idx < argTypeAttrs.size(); idx++) {
       LLVM::DITypeAttr argTypeAttr = argTypeAttrs[idx];
