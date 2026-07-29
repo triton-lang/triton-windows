@@ -628,9 +628,9 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
             override_path=None,
             version="",
             url_func=lambda system, arch, version:
-            "https://github.com/chinazhangchao/triton-windows/releases/download/triton_win_arm64-3.8.0/tcc-windows-arm64-d9d02c5.zip"
+            "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-1d8b731/tcc-0.9.28rc-1d8b731-windows-arm64.zip"
             if arch == "arm64" else
-            "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-05bb793/tcc-0.9.28rc-05bb793.zip",
+            "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-1d8b731/tcc-0.9.28rc-1d8b731-windows-x64.zip",
             helper_args=helper_args,
         )
 
