@@ -68,7 +68,7 @@ def _normalize_bool(value: str, default: str = "") -> bool:
     return effective_value.upper() in ["ON", "1", "YES", "TRUE", "Y"]
 
 
-def _normalize_optional(value: Optional[str]) -> Optional[str]:
+def _normalize_optional(value: str) -> Optional[str]:
     if value is None:
         return None
     value = value.strip()
@@ -312,20 +312,6 @@ def get_json_package_info():
     return Package("json", "", url, "JSON_INCLUDE_DIR", "", "JSON_SYSPATH")
 
 
-def _get_llvm_package_url(llvm_info: dict, system_suffix: str, name: str) -> str:
-    env_var_name = f"LLVM_{system_suffix.upper().replace('-', '_')}_URL"
-    for env_var in [env_var_name, "TRITON_LLVM_DOWNLOAD_URL"]:
-        env_url = _normalize_optional(os.getenv(env_var))
-        if env_url is not None:
-            return env_url
-
-    llvm_urls = llvm_info.get("urls", {})
-    if system_suffix in llvm_urls:
-        return llvm_urls[system_suffix]
-
-    return f"https://oaitriton.blob.core.windows.net/public/llvm-builds/{name}.tar.gz"
-
-
 def is_linux_os(os_id):
     if os.path.exists("/etc/os-release"):
         with open("/etc/os-release", "r") as os_release_file:
@@ -384,11 +370,10 @@ def get_llvm_package_info(helper_args: BuildHelperArgs):
         return Package("llvm", "LLVM-C.lib", "", "LLVM_INCLUDE_DIRS", "LLVM_LIBRARY_DIR", "LLVM_SYSPATH")
     rev = llvm_info["llvm_hash"][:8]
     build_number = llvm_info["build_number"]
-    default_name = f"llvm-{rev}-{system_suffix}-{build_number}"
-    name = llvm_info.get("package_names", {}).get(system_suffix, default_name)
+    name = f"llvm-{rev}-{system_suffix}-{build_number}"
     # Create a stable symlink that doesn't include revision
     sym_name = f"llvm-{system_suffix}"
-    url = _get_llvm_package_url(llvm_info, system_suffix, name)
+    url = f"https://oaitriton.blob.core.windows.net/public/llvm-builds/{name}.tar.gz"
     sha256sum = llvm_info["sha256sum"][system_suffix]
     return Package(
         "llvm",
