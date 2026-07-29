@@ -33,6 +33,11 @@ on:
         required: true
         type: string
         default: '0'
+      is_python_abi3:
+        description: Is Python ABI3
+        required: false
+        type: boolean
+        default: false
       cibw_build_override:
         description: CIBW_BUILD override
         required: false
@@ -90,6 +95,7 @@ jobs:
           TRITON_BUILD_PROTON: ${{ inputs.triton_build_proton }}
           TRITON_BUILD_UT: ${{ inputs.triton_build_ut }}
           TRITON_REL_BUILD_WITH_ASSERTS: ${{ inputs.triton_rel_build_with_asserts }}
+          IS_PYTHON_ABI3: ${{ inputs.is_python_abi3 }}
           CIBW_BUILD_OVERRIDE: ${{ inputs.cibw_build_override }}
         run: |
           # Get-ChildItem Env:
@@ -107,24 +113,45 @@ jobs:
           git rev-parse HEAD
           git for-each-ref --contains HEAD --format "%(refname:short)"
 
-          if ($Env:CIBW_BUILD_OVERRIDE)
-          {
-            $Env:CIBW_BUILD = $Env:CIBW_BUILD_OVERRIDE
-          }
-          else
-          {
-            $Env:CIBW_BUILD = "cp3{10,11,12,13,14}-win_amd64"
-          }
-
           $Env:CIBW_BUILD_VERBOSITY = "1"
 
-          if (Test-Path -Path setup.py)
+          if ($Env:IS_PYTHON_ABI3 -eq "true")
           {
-            cibuildwheel .
+            if ($Env:CIBW_BUILD_OVERRIDE)
+            {
+              $Env:CIBW_BUILD = $Env:CIBW_BUILD_OVERRIDE
+              $Env:TRITON_STABLE_ABI = "ON"
+              cibuildwheel .
+            }
+            else
+            {
+              $Env:CIBW_BUILD = "cp3{10,11}-win_amd64"
+              cibuildwheel .
+
+              $Env:CIBW_BUILD = "cp312-win_amd64"
+              $Env:TRITON_STABLE_ABI = "ON"
+              cibuildwheel .
+            }
           }
           else
           {
-            cibuildwheel python
+            if ($Env:CIBW_BUILD_OVERRIDE)
+            {
+              $Env:CIBW_BUILD = $Env:CIBW_BUILD_OVERRIDE
+            }
+            else
+            {
+              $Env:CIBW_BUILD = "cp3{10,11,12,13,14}-win_amd64"
+            }
+
+            if (Test-Path -Path setup.py)
+            {
+              cibuildwheel .
+            }
+            else
+            {
+              cibuildwheel python
+            }
           }
 
       - uses: actions/attest@v4
@@ -143,16 +170,25 @@ jobs:
           archive: false
 
       - uses: actions/upload-artifact@v7
+        if: ${{ inputs.is_python_abi3 }}
+        with:
+          path: triton-windows/wheelhouse/*-cp312-abi3-win_amd64.whl
+          archive: false
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !inputs.is_python_abi3 }}
         with:
           path: triton-windows/wheelhouse/*-cp312-cp312-win_amd64.whl
           archive: false
 
       - uses: actions/upload-artifact@v7
+        if: ${{ !inputs.is_python_abi3 }}
         with:
           path: triton-windows/wheelhouse/*-cp313-cp313-win_amd64.whl
           archive: false
 
       - uses: actions/upload-artifact@v7
+        if: ${{ !inputs.is_python_abi3 }}
         with:
           path: triton-windows/wheelhouse/*-cp314-cp314-win_amd64.whl
           archive: false
