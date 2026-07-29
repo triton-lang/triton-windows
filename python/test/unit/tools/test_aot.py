@@ -11,7 +11,7 @@ import numpy as np
 import torch  # noqa: F401 # TheRock ROCm requires importing torch before triton
 import triton
 from triton.backends.compiler import GPUTarget
-from triton.runtime.build import is_clang_cl, is_msvc, is_tcc, _find_compiler
+from triton.runtime.build import is_clang, is_clang_cl, is_msvc, is_tcc, _find_compiler
 from triton._internal_testing import is_cuda, is_hip
 
 if is_cuda():
@@ -196,7 +196,7 @@ def gen_kernel_library(dir, libname):
         libname = libname.replace(".so", ".lib")
 
         c_files = glob.glob(os.path.join(dir, "*.c"))
-        command = [cc, *c_files, "/nologo", "/utf-8", "/c"]
+        command = [cc, *c_files, "/nologo", "/utf-8", "/c", "/std:c11"]
         command += [f"/I{x}" for x in include_dirs if x is not None]
         subprocess.run(command, check=True, cwd=dir)
 
@@ -209,7 +209,7 @@ def gen_kernel_library(dir, libname):
         libname = libname.replace(".so", ".a")
 
         c_files = glob.glob(os.path.join(dir, "*.c"))
-        command = [cc, *c_files, "-c", "-fPIC", "-D_Py_USE_GCC_BUILTIN_ATOMICS"]
+        command = [cc, *c_files, "-c", "-std=c11", "-fPIC"]
         command += [f"-I{x}" for x in include_dirs if x is not None]
         subprocess.run(command, check=True, cwd=dir)
 
@@ -219,7 +219,10 @@ def gen_kernel_library(dir, libname):
         subprocess.run(command, check=True, cwd=dir)
     else:
         c_files = glob.glob(os.path.join(dir, "*.c"))
-        command = [cc, *c_files, "-c", "-fPIC"]
+        command = [cc, *c_files, "-c", "-std=c11"]
+        if not (os.name == "nt" and is_clang(cc)):
+            # Clang does not support -fPIC on Windows
+            command += ["-fPIC"]
         command += [f"-I{x}" for x in include_dirs if x is not None]
         subprocess.run(command, check=True, cwd=dir)
 
@@ -349,16 +352,14 @@ int main(int argc, char **argv) {{
 
     cc = _find_compiler("c")
     if is_msvc(cc) or is_clang_cl(cc):
-        command = [cc, "test.c", "/nologo", "/utf-8"]
+        command = [cc, "test.c", "/nologo", "/utf-8", "/std:c11"]
         command += [f"/I{x}" for x in include_dirs if x is not None]
         command += ["/link"]
         command += [f"/LIBPATH:{x}" for x in library_dirs()]
         command += [f"{x}.lib" for x in library_names()]
         command += [f"/LIBPATH:{dir}", "kernel.lib", f"/OUT:{exe}"]
     else:
-        command = [cc, "test.c"]
-        if is_tcc(cc):
-            command += ["-D_Py_USE_GCC_BUILTIN_ATOMICS"]
+        command = [cc, "test.c", "-std=c11"]
         command += [f"-I{x}" for x in include_dirs if x is not None]
         for lib_dir in library_dirs():
             command += [f"-L{lib_dir}"]
