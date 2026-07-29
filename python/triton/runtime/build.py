@@ -75,6 +75,8 @@ def _cc_cmd(cc: str, src: str, out: str, include_dirs: list[str], library_dirs: 
     if is_msvc(cc) or is_clang_cl(cc):
         out_base = os.path.splitext(out)[0]
         cc_cmd = [cc, src, "/nologo", "/O2", "/LD", "/wd4819", "/std:c11"]
+        if sysconfig.get_config_var("Py_GIL_DISABLED"):
+            cc_cmd += ["/DPy_GIL_DISABLED"]
         cc_cmd += [f"/I{dir}" for dir in include_dirs if dir is not None]
         cc_cmd += [f"/Fo{out_base + '.obj'}"]
         cc_cmd += ["/link"]
@@ -85,15 +87,15 @@ def _cc_cmd(cc: str, src: str, out: str, include_dirs: list[str], library_dirs: 
         cc_cmd += [f"/PDB:{out_base + '.pdb'}"]
     else:
         # for -Wno-psabi, see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=111047
-        cc_cmd = [cc, src, "-O3", "-shared", "-Wno-psabi", "-o", out]
+        cc_cmd = [cc, src, "-O3", "-std=c11", "-shared", "-Wno-psabi", "-o", out]
         if not (os.name == "nt" and is_clang(cc)):
             # Clang does not support -fPIC on Windows
             cc_cmd += ["-fPIC"]
-        if is_tcc(cc):
-            cc_cmd += ["-D_Py_USE_GCC_BUILTIN_ATOMICS"]
-        cc_cmd += [_library_flag(lib, cc) for lib in libraries]
-        cc_cmd += [f"-L{dir}" for dir in library_dirs]
+        if sysconfig.get_config_var("Py_GIL_DISABLED"):
+            cc_cmd += ["-DPy_GIL_DISABLED"]
         cc_cmd += [f"-I{dir}" for dir in include_dirs if dir is not None]
+        cc_cmd += [f"-L{dir}" for dir in library_dirs]
+        cc_cmd += [_library_flag(lib, cc) for lib in libraries]
     cc_cmd += ccflags
     return cc_cmd
 
@@ -142,12 +144,12 @@ def _build(name: str, src: str, srcdir: str, library_dirs: list[str], include_di
 
 
 def _library_flag(lib: str, cc: str) -> str:
-    if os.name == "nt" and not is_tcc(cc):
+    if is_msvc(cc) or is_clang_cl(cc):
         if not lib.lower().endswith(".lib"):
             lib = lib + ".lib"
         return lib
     # Match .so files with optional version numbers (e.g., .so, .so.1, .so.513.50.1)
-    if re.search(r'\.so(\.\d+)*$', lib) or lib.endswith(".a"):
+    if re.search(r'\.so(\.\d+)*$', lib) or lib.endswith((".a", ".lib")):
         return f"-l:{lib}"
     return f"-l{lib}"
 
