@@ -8,11 +8,10 @@ Based on [andreigh](https://github.com/andreigh/triton/tree/windows), [wkpark](h
 * All unit tests passed
 * It's as fast as on Linux on the same GPU
 * Windows 10 and 11 are supported
-* Nvidia GPU is supported
-    * For AMD GPU, we're beginning to add support in this repo, see https://github.com/triton-lang/triton-windows/issues/2
-    * For older AMD GPUs that are not supported by TheRock, [ComfyUI-Zluda](https://github.com/patientx/ComfyUI-Zluda) has a lot of information. Despite the name, they have information for both ZLUDA and ROCm. They use https://github.com/lshqqytiger/triton , which is based on https://github.com/Repeerc/triton-amdgpu-windows
+* Recent Nvidia and AMD GPUs are supported
     * For Intel XPU, see https://github.com/intel/intel-xpu-backend-for-triton . They have Windows support
 * Proton and GSan are not actively maintained in this repo. If you want to try them, you can build from source
+* We welcome quality-of-life improvements for local AI users, and PRs to add support for older GPUs. triton-windows does not regress Linux support, so these improvements also work on Linux
 
 ## Installation
 
@@ -20,61 +19,75 @@ Triton accelerates your AI model by compiling things on your computer. You need 
 
 ### 1. GPU
 
-Check your GPU model. Technically they're categorized by 'compute capability' (also known as 'CUDA architecture', 'streaming multiprocessor version', or 'sm'). For example:
+Check your GPU model. Also make sure you have the latest GPU driver.
 
-<details>
-<summary>RTX 50xx (Blackwell architecture, sm120)</summary>
+| Architecture | Supported |
+| :--- | :--- |
+| Consumer Blackwell (sm120, RTX 50xx) | Yes |
+| Ada (sm89, RTX 40xx) | Yes |
+| Ampere (sm86, RTX 30xx) | Yes |
+| Turing (sm75, GTX 16xx, RTX 20xx) | Yes in Triton 3.2 |
+| Volta (sm70, V100) | Yes in Triton 3.2 |
+| Consumer Pascal (sm61, GTX 10xx) | No |
+| Datacenter Pascal (sm60, P100) | No |
+| RDNA4 (gfx120x, RX 9xxx) | Yes |
+| RDNA3.5 (gfx115x, Strix Halo) | Yes |
+| RDNA3 (gfx110x, RX 7xxx) | Yes |
+| RDNA2 (gfx103x, RX 6xxx) | Partially |
 
-This is officially supported by Triton. It only works with Triton >= 3.3, PyTorch >= 2.7, and CUDA >= 12.8 .
-</details>
+* Blackwell only works with Triton >= 3.3, PyTorch >= 2.7, and CUDA >= 12.8
+* Support for Volta and Turing was dropped since Triton 3.3, see https://github.com/triton-lang/triton/pull/5066
+* If you want to help maintaining Turing in the latest Triton, see https://github.com/triton-lang/triton-windows/issues/28
+* If you want to help with Pascal, see https://github.com/woct0rdho/triton-windows/issues/133 for the previous discussions, and open a new issue in this repo. It may be handled in a way similar to RDNA2
+* If you want to help with RDNA2, see https://github.com/triton-lang/triton-windows/issues/41
 
-<details>
-<summary>RTX 40xx (Ada architecture, sm89)</summary>
+Besides the overall Triton support, also check hardware-supported data types:
 
-This is officially supported by Triton.
-</details>
+| Architecture | fp16 | bf16 | fp8 | fp4 | int8 | int4 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| Consumer Blackwell (sm120, RTX 50xx) | Y | Y | Y | Y | Y | N |
+| Datacenter Blackwell (sm100, B200) | Y | Y | Y | Y | Y | N |
+| Hopper (sm90, H100) | Y | Y | Y | N | Y | N |
+| Ada (sm89, RTX 40xx) | Y | Y | Y | N | Y | Y |
+| Ampere (sm86, RTX 30xx) | Y | Y | N | N | Y | Y |
+| Turing (sm75, GTX 16xx, RTX 20xx) | Y | N | N | N | Y | Y |
+| Volta (sm70, V100) | Y | N | N | N | N | N |
+| Consumer Pascal (sm61, GTX 10xx) | N | N | N | N | Y | N |
+| Datacenter Pascal (sm60, P100) | Y | N | N | N | N | N |
+| RDNA4 (gfx120x, RX 9xxx) | Y | Y | Y | N | Y | Y |
+| RDNA3.5 (gfx115x, Strix Halo) | Y | Y | N | N | * | * |
+| RDNA3 (gfx110x, RX 7xxx) | Y | Y | N | N | * | * |
+| CDNA3 (gfx94x, MI300) | Y | Y | Y | N | Y | N |
+| RDNA2 (gfx103x, RX 6xxx) | Y | N | N | N | Y | Y |
 
-<details>
-<summary>RTX 30xx (Ampere architecture, sm86)</summary>
-
-This is officially supported by Triton. Although fp8 (also known as float8) on Ampere is not supported by the official Triton, it's supported since `triton-windows 3.5.0.post21`.
-</details>
-
-<details>
-<summary>GTX 16xx/RTX 20xx (Turing architecture, sm75)</summary>
-
-This is officially supported by Triton <= 3.2 . Support for Turing has been dropped since Triton 3.3, see https://github.com/triton-lang/triton/pull/5066
-
-Although fp8 (also known as float8) and bf16 (also known as bfloat16) on Turing are not supported by the official Triton, fp8 is supported since `triton-windows 3.2.0.post21`.
-</details>
-
-<details>
-<summary>GTX 10xx (Pascal architecture, sm61) and older</summary>
-
-This is not supported. See https://github.com/woct0rdho/triton-windows/issues/133 for the previous discussions, and open a new issue in this repo if you want to help.
-</details>
-
-Also, make sure you have the latest GPU driver.
+* 'Y' means it's possible to achieve the theoretical speed in matmul: fp16/bf16 is 2x fp32 or faster, fp8/int8 is 2x fp16, and fp4/int4 is 4x fp16, not considering sparsity
+  * Without hardware support, it's also possible to work by silently upcasting to a supported data type in matmul, but it will not achieve the theoretical speed
+  * The official Triton does not support the silent upcast of fp8 on Ampere and older GPUs. It's supported since triton-windows post21
+  * Even with hardware support, the speed still depends on how well the code is optimized, rather than simply achieves the theoretical speed
+* Consumer Pascal does not have tensor cores, but it has `DP4A` for fast int8. Similarly, RDNA2 does not have matrix cores, but it has `V_DOT4_I32_I8/V_DOT8_I32_I4` for fast int8/int4
+* Volta does not have fast int8/int4. It has `DP4A`, but that's slower than fp16 tensor core
+* RDNA3/3.5's int8 matrix core is only 1x fp16, and int4 matrix core is only 2x fp16
+* SageAttention requires int8
 
 ### 2. Python environment
 
 Check how your Python is installed. Either of the following environments is supported:
 * **Embeded**: You use an all-in-one AI software package such as ComfyUI
     * There should be a folder `python_embeded` in the ComfyUI installation folder
-        * For FramePack, it's `system\python` in the FramePack installation folder
-        * Other AI software may put this folder at a different path
+    * Other AI software may put this folder at a different path
     * In this case, don't directly run `python`, but use the full path `C:\path\to\python_embeded\python.exe`
     * Also, don't directly run `pip`, but instead run `C:\path\to\python_embeded\python.exe -m pip`
-    * By default there is no `pip.exe` in the folder `python_embeded`. If you directly run `pip`, you're actually running a `pip.exe` installed somewhere else on your computer
+    * In the folder `python_embeded`, by default pip is not installed as a direct executable `pip.exe`, but a Python package. If you directly run `pip`, you're actually running a `pip.exe` installed somewhere else on your computer
     * It's ok to first `cd` to `python_embeded`, then run `.\python.exe`, but remember to add `.\` to run an executable in the current folder. In PowerShell, without `.\`, you're still running a `python.exe` installed somewhere else on your computer
 * **System-wide**: You install Python at a location like `C:\Python312\` or `C:\Program Files\Python312\` and directly use it
 * **User-wide**: You install Python at a location like `C:\Users\<your username>\AppData\Local\Programs\Python\Python312\` and directly use it
-* **conda**: You create a virtual environment using `conda`
 * **Python venv**: You create a virtual environment using `venv` or `virtualenv`
+* **uv**: You create a virtual environment using `uv venv`
+* **conda**: You create a virtual environment using `conda`
 
 I don't recommend installing Python from Windows Store, because it's complicated to interact with a 'packaged' Windows app.
 
-For other environment managers like poetry or uv, if you find problems, please open an issue.
+For other environment managers like poetry, if you find problems, please open an issue.
 
 Make sure what environment you're using. You can run `Get-Command -All python` in PowerShell (or `where python` in cmd) to see the installation path of Python, and `python --version` to see its version. If you see multiple Python installations, make sure that you install and run everything from the first one.
 * For example, if you think you're using Python 3.12, but pip downloads a wheel with `cp311` in its name, then it means you're not using the Python environment you think
@@ -86,8 +99,9 @@ Don't mix two environments, unless you know them very well.
 ### 3. PyTorch
 
 Although technically Triton can be used alone, in the following let's assume you use it with PyTorch. Each PyTorch minor version is only guaranteed to work with a specific Triton minor version:
+
 | PyTorch | Triton |
-| --- | --- |
+| :---: | :---: |
 | 2.4 | 3.1 |
 | 2.5 | 3.1 |
 | 2.6 | 3.2 |
@@ -98,10 +112,13 @@ Although technically Triton can be used alone, in the following let's assume you
 | 2.11 | 3.6 |
 | 2.12 | 3.7 |
 | 2.13 | 3.7 |
+| 2.14 | 3.8 |
 
 PyTorch 2.3 and older are not supported in this repo.
 
 If you have to use Triton 3.2 because you're using an old GPU, then you can try to use Triton 3.2 with PyTorch >= 2.7, but it's not guaranteed to always work.
+
+For AMD GPU, you may install ROCm and PyTorch from TheRock to get the latest features, see https://github.com/ROCm/TheRock/blob/main/RELEASES.md
 
 ### 4. CUDA
 
@@ -110,23 +127,25 @@ You can skip this.
 <details>
 <summary>Details</summary>
 
-Since `triton-windows 3.2.0.post11`, a minimal CUDA toolchain is bundled in the Triton wheels, so you don't need to manually install it.
+Since triton-windows post11, a minimal CUDA toolchain is bundled in the Triton wheels, so you don't need to manually install it.
 
-CUDA toolchain minor version bundled in each Triton minor version:
-| Triton | CUDA |
+ptxas version bundled in each Triton minor version:
+
+| Triton | ptxas |
 | --- | --- |
 | 3.1 .. 3.2 | 12.4 |
 | 3.3 .. 3.7 | 12.8 |
+| 3.8 | 12.9 |
 
-See [nvidia-toolchain-version.json](https://github.com/triton-lang/triton/blob/main/cmake/nvidia-toolchain-version.json) for the detailed versions.
+See [nvidia-toolchain-version.json](https://github.com/triton-lang/triton/blob/main/cmake/nvidia-toolchain-version.json) for the detailed versions of other components.
 
 If you need to override the CUDA toolchain, you can set the environment variable `CUDA_PATH`.
 </details>
 
 <details>
-<summary>Instructions for older or custom wheels without bundled CUDA</summary>
+<summary>Instructions for older or custom wheels without bundled CUDA toolchain</summary>
 
-CUDA 12 is required. CUDA 11 and older are not supported. Choose either of the following ways to install CUDA:
+CUDA >= 12 is required. CUDA 11 and older are not supported. Choose either of the following ways to install a CUDA toolchain:
 
 **a) System-wide**: Recommended for most people
 <details>
@@ -149,7 +168,7 @@ CUDA 12 is required. CUDA 11 and older are not supported. Choose either of the f
 <details>
 <summary>Expand</summary>
 
-* Install the following packages:
+* Install the following packages, with the version you need:
     ```pwsh
     conda install -c conda-forge cuda-nvcc pytorch-gpu
     ```
@@ -161,11 +180,12 @@ CUDA 12 is required. CUDA 11 and older are not supported. Choose either of the f
 <summary>Expand</summary>
 
 1. Install PyTorch with CUDA using pip
-2. Install the following packages:
+2. Install the following packages, with the version you need:
     ```pwsh
     pip install nvidia-cuda-nvcc-cu12 nvidia-cuda-runtime-cu12
     ```
-3. There should be a folder `Lib\site-packages\nvidia\cuda_runtime\` in your Python installation path (or venv), and you need to add a library in it
+3. For CUDA <= 12.8, there should be a folder `Lib\site-packages\nvidia\cuda_runtime\` in your Python installation path (or venv), and you need to add a library in it
+    * Starting from CUDA 12.9, you no longer need to manually do it
     * Download it from https://github.com/woct0rdho/triton-windows/releases/download/v3.2.0-windows.post9/cuda_12.8_lib.zip
     * Choose 12.4, 12.6, or 12.8 according to your CUDA version
     * Put the folder `lib` into `cuda_runtime`
@@ -181,13 +201,13 @@ You can skip this.
 <details>
 <summary>Details</summary>
 
-Since `triton-windows 3.2.0.post13`, TinyCC is bundled in the Triton wheels, so you don't need to manually install a C compiler to use Triton. Packages that directly call `triton.jit`, such as SageAttention, will just work.
+Since triton-windows post13, TinyCC is bundled in the Triton wheels, so you don't need to manually install a C compiler to use Triton. Packages that directly call `triton.jit`, such as SageAttention, will just work.
 
 You still need to install a C++ compiler if you use `torch.compile` targeting CPU. This may happen when you use nodes like 'CompileModel' in ComfyUI. Triton does not affect how PyTorch configures the C++ compiler in this case.
 
-If you need to override the C compiler, you can set the environment variable `CC`. MSVC with the Nvidia backend and clang-cl with the AMD backend are supported.
+If you need to override the C compiler, you can set the environment variable `CC`. If you set `CC` in the 'Environment Variables' window, then it should be a string, not a list. A list will implicitly add a semicolon `;` at its end and cause problems.
 
-If you set `CC` in the 'Environment Variables' window, then it should be a string, not a list. A list will implicitly add a semicolon `;` at its end and cause problems.
+MSVC is supported with the Nvidia backend, and clang-cl (with MSVCRT) is supported with the AMD backend. TinyCC is not officially supported by CUDA or ROCm, but it is enough to compile the C code for Triton JIT, and we support it on the basis of best effort. Other compilers such as gcc are not guaranteed to work.
 </details>
 
 <details>
@@ -227,44 +247,42 @@ vcredist is required (also known as 'Visual C++ Redistributable for Visual Studi
 
 ### 7. Triton
 
-Since `triton-windows 3.2.0.post11`, the wheels are published to https://pypi.org/project/triton-windows/ , so you don't need to manually download a wheel from GitHub releases, and pip will automatically find it.
+Since triton-windows post11, the wheels are published to https://pypi.org/project/triton-windows/ , so you don't need to manually download a wheel from GitHub releases, and pip will automatically find it.
 
 If you've installed an old version of `triton`, first uninstall it:
 ```pwsh
 pip uninstall triton
 ```
-Now you can install `triton-windows 3.7`, or upgrade the already installed version. To prevent breaking with your installed PyTorch when a new version of Triton is released in future, you can limit the version to be < 3.8:
+Now you can install `triton-windows 3.8`, or upgrade the already installed version. To prevent breaking with your installed PyTorch when a new version of Triton is released in future, you can limit the version to be < 3.9:
 ```pwsh
-pip install -U "triton-windows<3.8"
+pip install -U "triton-windows<3.9"
 ```
 Note again that if you're using the embeded Python, then instead of directly run `pip`, you need:
 ```pwsh
-C:\path\to\python_embeded\python.exe -m pip install -U "triton-windows<3.8"
+C:\path\to\python_embeded\python.exe -m pip install -U "triton-windows<3.9"
 ```
 Or if you want `triton-windows 3.2`, then run:
 ```pwsh
 pip install -U "triton-windows<3.3"
 ```
 
-### 8. Special notes for ComfyUI with embeded Python
+### 8. Special notes for embeded Python
 
 * There should be a Python folder
     * For ComfyUI, it's `python_embeded` in the ComfyUI installation folder
-    * For FramePack, it's `system\python` in the FramePack installation folder
     * Other AI software may put the Python folder at a different path
     * If you created a venv, depending on how you created it, the Python folder may be just the venv folder or the `venv\Scripts` folder
     * If you're not sure, you can run `os.path.dirname(sysconfig.get_paths()["include"])` to find the Python folder, see [`py_include_dir`](https://github.com/woct0rdho/triton-windows/blob/819e9c8c29ad2ae96cbd93a1d3b8a3a0f4c8f09c/python/triton/runtime/build.py#L28)
 * You need to put two folders `include` and `libs` into the Python folder to make Triton work
     * Be careful: It is 'libs', not 'lib'. There may already be a folder `Lib` in the Python folder, containing things like `site-packages` or `__future__.py`. You should not modify the `Lib` folder
     * If you're using ComfyUI_windows_portable >= 0.3.50 with Python 3.13, then download the two folders here: [python_3.13.2_include_libs.zip](https://github.com/woct0rdho/triton-windows/releases/download/v3.0.0-windows.post1/python_3.13.2_include_libs.zip)
-    * If you're using FramePack with Python 3.10, then download the two folders here: [python_3.10.11_include_libs.zip](https://github.com/woct0rdho/triton-windows/releases/download/v3.0.0-windows.post1/python_3.10.11_include_libs.zip)
     * The minor version (3.9/3.10 ...) must be correct, but the patch version (3.10.6/3.10.7 ...) can be different
     * If you're using another Python version, you can find the two folders at https://github.com/woct0rdho/triton-windows/releases/v3.0.0-windows.post1/
 * (For developers: This is equivalent to `python-dev` on Linux, and you can obtain the two folders from nuget when bundling Python in your app, see https://github.com/comfyanonymous/ComfyUI/pull/7200 )
 
 ## Test if it works
 
-Before using Triton in larger projects like ComfyUI, please run the following script to test if Triton itself works.
+Before using Triton in your project like ComfyUI, please run the following script to test if Triton itself works.
 * You need to save the code in a file, such as `test_triton.py`, then run `python test_triton.py`
 * When you open an issue, please show the command you use to run this test, and the full error log
 ```python
@@ -335,7 +353,6 @@ If you're not using conda, then you need to find the vcredist DLLs (`vcruntime14
 <summary>Embeded Python (You use an all-in-one AI software package such as ComfyUI)</summary>
 
 * For ComfyUI, the DLLs should be in the folder `python_embeded`.
-* For FramePack, it's `system\python` in the FramePack installation folder
 * Other AI software may put this folder at a different path
 </details>
 
@@ -456,6 +473,8 @@ Or errors like:
 ```
 The solution is to [enable Windows' long path support](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=registry#enable-long-paths-in-windows-10-version-1607-and-later). A reboot is required after the modification.
 
+Since triton-windows post26, it should not happen.
+
 ### fp8 is not supported on RTX 30xx and older GPUs
 
 If you see errors like
@@ -478,7 +497,7 @@ AssertionError: fp8e4nv data type is not supported on CUDA arch < 89
 ```
 then it's because in the official Triton, fp8 only works on Nvidia GPUs with sm >= 89, such as RTX 40xx and newer.
 
-Since `triton-windows 3.5.0.post21`, fp8 on RTX 30xx is supported.
+Since triton-windows post21, fp8 on RTX 30xx is supported.
 
 ### Error with `os.rename`
 
@@ -490,13 +509,13 @@ then you need: https://github.com/pytorch/pytorch/issues/138211
 
 This has been fixed since PyTorch 2.6 .
 
-### Error with model offloading
+### Error with CPU tensor
 
-If you're using ComfyUI, the model is compiled, and you see error messages like
+If see errors like
 ```
 ValueError: Pointer argument (at 0) cannot be accessed from Triton (cpu tensor?)
 ```
-then you may use `--gpu-only` when launching ComfyUI to disable model offloading, see https://github.com/woct0rdho/triton-windows/issues/61
+It means some tensor should be on GPU but it's not there. A possible solution is adding `--gpu-only` when launching ComfyUI to disable CPU offloading, see https://github.com/woct0rdho/triton-windows/issues/61 . If you actually need CPU offloading or multi-GPU, please open an issue.
 
 ### No module named 'triton.ops'
 
