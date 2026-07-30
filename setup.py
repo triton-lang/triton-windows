@@ -528,6 +528,10 @@ class CMakeBuild(build_ext):
             "-DTRITON_WHEEL_DIR=" + wheeldir,
             f"-DTRITON_VERSION={TRITON_VERSION}",
         ]
+        cmake_args += [
+            f"-U{name}"
+            for name in ["LLVM_DIR", "LLVM_INCLUDE_DIRS", "LLVM_LIBRARY_DIR", "LLVM_SYSPATH", "MLIR_DIR", "LLD_DIR"]
+        ]
         if lit_dir is not None:
             cmake_args.append("-DLLVM_EXTERNAL_LIT=" + lit_dir)
         cmake_args.extend(thirdparty_cmake_args)
