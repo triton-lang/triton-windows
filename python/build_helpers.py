@@ -104,7 +104,7 @@ def open_url(url):
     return urllib.request.urlopen(request, timeout=300)
 
 
-def _download_file_with_curl(curl: str, url: str, path: str, label: str):
+def _download_file_with_curl(curl: str, url: str, path: str, label: str, retries: int = 0):
     print(f"{label}:", file=sys.stdout, flush=True)
     command = [
         curl,
@@ -118,6 +118,8 @@ def _download_file_with_curl(curl: str, url: str, path: str, label: str):
         "--url",
         url,
     ]
+    if retries:
+        command.extend(["--retry", str(retries), "--retry-all-errors", "--retry-delay", "10"])
     hostname = urllib.parse.urlparse(url).hostname
     if hostname is not None and hostname.endswith(".blob.core.windows.net"):
         # Anonymous Azure Blob requests default to 2009-09-19, which ignores Range requests.
@@ -137,11 +139,11 @@ def _download_file_with_urllib(url: str, path: str, label: str):
             shutil.copyfileobj(progress_reader, file)
 
 
-def _download_file(url: str, path: str, label: str):
+def _download_file(url: str, path: str, label: str, retries: int = 0):
     curl = shutil.which("curl")
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     if curl is not None:
-        _download_file_with_curl(curl, url, path, label)
+        _download_file_with_curl(curl, url, path, label, retries)
     else:
         _download_file_with_urllib(url, path, label)
 
@@ -471,6 +473,160 @@ def write_thirdparty_cmake_vars(output: str, packages: list[str], helper_args: B
 # --- nvidia toolchain helpers -----
 
 
+def _is_windows_arm64():
+    return platform.system() == "Windows" and platform.machine().lower() in ("arm64", "aarch64")
+
+
+def _get_windows_arm64_cuda_required_paths(helper_args: BuildHelperArgs, need_copy_all: bool) -> list[str]:
+    relative_paths = []
+    if helper_args.ptxas_path is None:
+        relative_paths.append("bin/ptxas.exe")
+    if need_copy_all:
+        if helper_args.cudacrt_path is None or helper_args.cudart_path is None:
+            relative_paths.append("include/cuda.h")
+        if helper_args.cudart_path is None:
+            relative_paths.append("lib/arm64/cuda.lib")
+        if helper_args.cupti_include_path is None:
+            relative_paths.append("extras/CUPTI/include/cupti.h")
+        if helper_args.cupti_lib_path is None or helper_args.cupti_lib_blackwell_path is None:
+            relative_paths.append("extras/CUPTI/lib/arm64/cupti.lib")
+    elif helper_args.cudart_path is None:
+        relative_paths.extend(["include/cuda.h", "lib/arm64/cuda.lib"])
+    return relative_paths
+
+
+def _find_windows_arm64_cuda_root(toolkit_version: str, relative_paths: list[str]) -> Path | None:
+    version_suffix = toolkit_version.replace(".", "_")
+    program_files = os.getenv("ProgramFiles", r"C:\Program Files")
+    candidates = [
+        os.getenv(f"CUDA_PATH_V{version_suffix}"),
+        os.getenv("CUDA_PATH"),
+        os.getenv("CUDA_HOME"),
+        os.path.join(program_files, "NVIDIA GPU Computing Toolkit", "CUDA", f"v{toolkit_version}"),
+    ]
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        root = Path(candidate)
+        if all((root / relative_path).is_file() for relative_path in relative_paths):
+            return root
+    return None
+
+
+def _install_windows_arm64_cuda(config: dict, helper_args: BuildHelperArgs, need_copy_all: bool) -> Path:
+    toolkit_version = config["toolkit-version"]
+    required_paths = _get_windows_arm64_cuda_required_paths(helper_args, need_copy_all)
+    cuda_root = _find_windows_arm64_cuda_root(toolkit_version, required_paths)
+    if cuda_root is not None:
+        print(f"using Windows ARM64 CUDA Toolkit at {cuda_root}")
+        return cuda_root
+
+    installer_url = config["installer-url"]
+    installer_name = os.path.basename(urllib.parse.urlparse(installer_url).path)
+    installer_dir = Path(helper_args.cache_path) / "nvidia" / f"cuda-{toolkit_version}-windows-arm64"
+    installer_path = installer_dir / installer_name
+    partial_path = Path(f"{installer_path}.part")
+    minimum_size = config["installer-min-size"]
+    installer_dir.mkdir(parents=True, exist_ok=True)
+
+    if installer_path.exists() and installer_path.stat().st_size < minimum_size:
+        installer_path.unlink()
+    if partial_path.exists() and partial_path.stat().st_size >= minimum_size:
+        partial_path.replace(installer_path)
+    if not installer_path.exists():
+        _download_file(installer_url, str(partial_path), f"downloading CUDA {toolkit_version} for Windows ARM64",
+                       retries=5)
+        if partial_path.stat().st_size < minimum_size:
+            raise RuntimeError(f"CUDA installer download is incomplete: {partial_path}")
+        partial_path.replace(installer_path)
+
+    powershell = shutil.which("powershell") or shutil.which("pwsh")
+    if powershell is None:
+        raise RuntimeError("PowerShell is required to install CUDA on Windows ARM64")
+    log_dir = installer_dir / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    install_args = [
+        "-s",
+        "-n",
+        f'-log:"{log_dir}"',
+        "-loglevel:6",
+        *config["packages"],
+    ]
+    install_env = os.environ.copy()
+    install_env["TRITON_CUDA_INSTALLER"] = str(installer_path)
+    install_env["TRITON_CUDA_INSTALL_ARGS"] = json.dumps(install_args)
+    install_script = (
+        "$installArgs = @(ConvertFrom-Json -InputObject $env:TRITON_CUDA_INSTALL_ARGS); "
+        "$process = Start-Process -FilePath $env:TRITON_CUDA_INSTALLER "
+        "-ArgumentList $installArgs -Wait -PassThru; exit $process.ExitCode"
+    )
+    print(f"installing CUDA {toolkit_version} for Windows ARM64 ...")
+    result = subprocess.run(
+        [powershell, "-NoProfile", "-NonInteractive", "-Command", install_script],
+        env=install_env,
+        check=False,
+    )
+    if result.returncode not in (0, 1):
+        raise RuntimeError(f"CUDA installer failed with exit code {result.returncode}; see {log_dir}")
+
+    cuda_root = _find_windows_arm64_cuda_root(toolkit_version, required_paths)
+    if cuda_root is None:
+        raise RuntimeError(f"CUDA {toolkit_version} installation completed but the ARM64 toolkit files were not found")
+    return cuda_root
+
+
+def _copy_windows_arm64_cuda_path(source: Path, destination: Path, replace_directory: bool = False):
+    if not source.exists():
+        raise RuntimeError(f"Required Windows ARM64 CUDA path was not found: {source}")
+    print(f"copy {source} to {destination} ...")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if source.is_dir():
+        if replace_directory and destination.exists():
+            shutil.rmtree(destination)
+        shutil.copytree(source, destination, copy_function=shutil.copy, dirs_exist_ok=True)
+    else:
+        shutil.copy(source, destination)
+
+
+def _copy_windows_arm64_cuda_dependencies(cuda_root: Path, helper_args: BuildHelperArgs, need_copy_all: bool):
+    backend_dir = Path(get_base_dir()) / "third_party" / "nvidia" / "backend"
+    if helper_args.ptxas_path is None:
+        _copy_windows_arm64_cuda_path(cuda_root / "bin" / "ptxas.exe", backend_dir / "bin" / "ptxas.exe")
+    if need_copy_all:
+        if helper_args.cudacrt_path is None or helper_args.cudart_path is None:
+            _copy_windows_arm64_cuda_path(cuda_root / "include", backend_dir / "include")
+        if helper_args.cudart_path is None:
+            _copy_windows_arm64_cuda_path(cuda_root / "lib" / "arm64" / "cuda.lib",
+                                          backend_dir / "lib" / "arm64" / "cuda.lib")
+        if helper_args.cupti_include_path is None:
+            _copy_windows_arm64_cuda_path(cuda_root / "extras" / "CUPTI" / "include", backend_dir / "include")
+        if helper_args.cupti_lib_path is None:
+            _copy_windows_arm64_cuda_path(cuda_root / "extras" / "CUPTI" / "lib" / "arm64",
+                                          backend_dir / "lib" / "cupti", replace_directory=True)
+        if helper_args.cupti_lib_blackwell_path is None:
+            _copy_windows_arm64_cuda_path(cuda_root / "extras" / "CUPTI" / "lib" / "arm64",
+                                          backend_dir / "lib" / "cupti-blackwell", replace_directory=True)
+    elif helper_args.cudart_path is None:
+        _copy_windows_arm64_cuda_path(cuda_root / "include" / "cuda.h", backend_dir / "include" / "cuda.h")
+        _copy_windows_arm64_cuda_path(cuda_root / "lib" / "arm64" / "cuda.lib",
+                                      backend_dir / "lib" / "arm64" / "cuda.lib")
+
+
+def _download_and_copy_tcc(helper_args: BuildHelperArgs):
+    download_and_copy(
+        name="tcc",
+        src_func=lambda system, arch, version: ".",
+        dst_path="python/triton/runtime/tcc",
+        override_path=None,
+        version="",
+        url_func=lambda system, arch, version:
+        "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-1d8b731/tcc-0.9.28rc-1d8b731-windows-arm64.zip"
+        if arch == "arm64" else
+        "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-1d8b731/tcc-0.9.28rc-1d8b731-windows-x64.zip",
+        helper_args=helper_args,
+    )
+
+
 def download_and_copy(name, src_func, dst_path, override_path, version, url_func, helper_args: BuildHelperArgs):
     if helper_args.offline_build:
         return
@@ -481,9 +637,7 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
     system = platform.system()
     arch = platform.machine()
     # NOTE: This might be wrong for jetson if both grace chips and jetson chips return aarch64
-    # On Windows ARM64, platform.machine() returns "ARM64". Map it to "x86_64" so we
-    # download Windows x64 NVIDIA headers, which are compatible for compilation on ARM64.
-    arch = {"AMD64": "x86_64", "ARM64": "x86_64", "arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
+    arch = {"AMD64": "x86_64", "ARM64": "arm64", "arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
     supported = {"Linux": "linux", "Darwin": "linux", "Windows": "windows"}
     url = url_func(supported[system], arch, version)
     src_path = src_func(supported[system], arch, version)
@@ -513,8 +667,19 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
         # parse this json file to get the version of the nvidia toolchain
         nvidia_toolchain_version = json.load(nvidia_version_file)
 
-    exe_extension = sysconfig.get_config_var("EXE")
     is_windows = platform.system() == "Windows"
+    need_copy_all = (_normalize_bool(os.getenv("TRITON_BUILD_PROTON", "ON"))
+                     or _normalize_bool(os.getenv("TRITON_BUILD_GSAN", "OFF")))
+    if _is_windows_arm64():
+        required_paths = _get_windows_arm64_cuda_required_paths(helper_args, need_copy_all)
+        if not helper_args.offline_build and required_paths:
+            cuda_root = _install_windows_arm64_cuda(nvidia_toolchain_version["windows-arm64"], helper_args,
+                                                    need_copy_all)
+            _copy_windows_arm64_cuda_dependencies(cuda_root, helper_args, need_copy_all)
+        _download_and_copy_tcc(helper_args)
+        return
+
+    exe_extension = sysconfig.get_config_var("EXE")
     archive_extension = ".zip" if is_windows else ".tar.xz"
     cupti_lib_version = nvidia_toolchain_version["cupti-windows" if is_windows else "cupti"]
     download_and_copy(
@@ -529,8 +694,6 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
     )
     # In triton-windows, we do not download a separate ptxas for blackwell
 
-    need_copy_all = (_normalize_bool(os.getenv("TRITON_BUILD_PROTON", "ON"))
-                     or _normalize_bool(os.getenv("TRITON_BUILD_GSAN", "OFF")))
     if need_copy_all:
         crt = "crt" if int(nvidia_toolchain_version["cudacrt"].split(".")[0]) >= 13 else "nvcc"
         download_and_copy(
@@ -606,18 +769,7 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
         )
 
     if is_windows:
-        download_and_copy(
-            name="tcc",
-            src_func=lambda system, arch, version: ".",
-            dst_path="python/triton/runtime/tcc",
-            override_path=None,
-            version="",
-            url_func=lambda system, arch, version:
-            "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-1d8b731/tcc-0.9.28rc-1d8b731-windows-arm64.zip"
-            if arch == "arm64" else
-            "https://github.com/woct0rdho/tinycc/releases/download/v0.9.28rc-1d8b731/tcc-0.9.28rc-1d8b731-windows-x64.zip",
-            helper_args=helper_args,
-        )
+        _download_and_copy_tcc(helper_args)
 
 
 def add_common_args(parser: argparse.ArgumentParser):

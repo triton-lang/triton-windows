@@ -673,7 +673,7 @@ void init_triton_llvm(py::module_ &m) {
       });
 
   // optimization levels
-  py::class_<llvm::OptimizationLevel>(m, "optimization_level");
+  py::enum_<llvm::OptimizationLevel>(m, "optimization_level");
   m.attr("OPTIMIZE_O0") = llvm::OptimizationLevel::O0;
   m.attr("OPTIMIZE_O1") = llvm::OptimizationLevel::O1;
   m.attr("OPTIMIZE_O2") = llvm::OptimizationLevel::O2;
