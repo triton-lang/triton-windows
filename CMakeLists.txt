@@ -320,7 +320,14 @@ if(TRITON_BUILD_PYTHON_MODULE)
   include_directories(${PYTHON_SRC_PATH})
 
   # Python Interpreter is used to run lit tests
-  find_package(Python3 REQUIRED COMPONENTS Development.Module Interpreter)
+  if(TRITON_STABLE_ABI)
+    # Find Python3::SABIModule and forward it to Python3::Module
+    find_package(Python3 REQUIRED COMPONENTS Development.SABIModule Interpreter)
+    add_library(Python3::Module INTERFACE IMPORTED)
+    target_link_libraries(Python3::Module INTERFACE Python3::SABIModule)
+  else()
+    find_package(Python3 REQUIRED COMPONENTS Development.Module Interpreter)
+  endif()
   # nanobind expects find_package(Python) which sets Python::Module target
   # and Python_* variables. Triton uses find_package(Python3) instead.
   # Bridge the two by aliasing the target and forwarding variables.
