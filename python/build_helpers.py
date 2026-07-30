@@ -555,11 +555,9 @@ def _install_windows_arm64_cuda(config: dict, helper_args: BuildHelperArgs, need
     install_env = os.environ.copy()
     install_env["TRITON_CUDA_INSTALLER"] = str(installer_path)
     install_env["TRITON_CUDA_INSTALL_ARGS"] = json.dumps(install_args)
-    install_script = (
-        "$installArgs = @(ConvertFrom-Json -InputObject $env:TRITON_CUDA_INSTALL_ARGS); "
-        "$process = Start-Process -FilePath $env:TRITON_CUDA_INSTALLER "
-        "-ArgumentList $installArgs -Wait -PassThru; exit $process.ExitCode"
-    )
+    install_script = ("$installArgs = @(ConvertFrom-Json -InputObject $env:TRITON_CUDA_INSTALL_ARGS); "
+                      "$process = Start-Process -FilePath $env:TRITON_CUDA_INSTALLER "
+                      "-ArgumentList $installArgs -Wait -PassThru; exit $process.ExitCode")
     print(f"installing CUDA {toolkit_version} for Windows ARM64 ...")
     result = subprocess.run(
         [powershell, "-NoProfile", "-NonInteractive", "-Command", install_script],
