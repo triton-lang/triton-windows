@@ -513,9 +513,8 @@ def _find_windows_arm64_cuda_root(toolkit_version: str, relative_paths: list[str
     return None
 
 
-def _install_windows_arm64_cuda(config: dict, helper_args: BuildHelperArgs, need_copy_all: bool) -> Path:
+def _resolve_windows_arm64_cuda(config: dict, helper_args: BuildHelperArgs, required_paths: list[str]) -> Path:
     toolkit_version = config["toolkit-version"]
-    required_paths = _get_windows_arm64_cuda_required_paths(helper_args, need_copy_all)
     cuda_root = _find_windows_arm64_cuda_root(toolkit_version, required_paths)
     if cuda_root is not None:
         print(f"using Windows ARM64 CUDA Toolkit at {cuda_root}")
@@ -526,8 +525,13 @@ def _install_windows_arm64_cuda(config: dict, helper_args: BuildHelperArgs, need
     installer_dir = Path(helper_args.cache_path) / "nvidia" / f"cuda-{toolkit_version}-windows-arm64"
     installer_path = installer_dir / installer_name
     partial_path = Path(f"{installer_path}.part")
+    cuda_root = installer_dir / "toolkit"
     minimum_size = config["installer-min-size"]
     installer_dir.mkdir(parents=True, exist_ok=True)
+
+    if all((cuda_root / relative_path).is_file() for relative_path in required_paths):
+        print(f"using cached Windows ARM64 CUDA Toolkit at {cuda_root}")
+        return cuda_root
 
     if installer_path.exists() and installer_path.stat().st_size < minimum_size:
         installer_path.unlink()
@@ -540,36 +544,43 @@ def _install_windows_arm64_cuda(config: dict, helper_args: BuildHelperArgs, need
             raise RuntimeError(f"CUDA installer download is incomplete: {partial_path}")
         partial_path.replace(installer_path)
 
-    powershell = shutil.which("powershell") or shutil.which("pwsh")
-    if powershell is None:
-        raise RuntimeError("PowerShell is required to install CUDA on Windows ARM64")
-    log_dir = installer_dir / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    install_args = [
-        "-s",
-        "-n",
-        f'-log:"{log_dir}"',
-        "-loglevel:6",
-        *config["packages"],
-    ]
-    install_env = os.environ.copy()
-    install_env["TRITON_CUDA_INSTALLER"] = str(installer_path)
-    install_env["TRITON_CUDA_INSTALL_ARGS"] = json.dumps(install_args)
-    install_script = ("$installArgs = @(ConvertFrom-Json -InputObject $env:TRITON_CUDA_INSTALL_ARGS); "
-                      "$process = Start-Process -FilePath $env:TRITON_CUDA_INSTALLER "
-                      "-ArgumentList $installArgs -Wait -PassThru; exit $process.ExitCode")
-    print(f"installing CUDA {toolkit_version} for Windows ARM64 ...")
-    result = subprocess.run(
-        [powershell, "-NoProfile", "-NonInteractive", "-Command", install_script],
-        env=install_env,
-        check=False,
-    )
-    if result.returncode not in (0, 1):
-        raise RuntimeError(f"CUDA installer failed with exit code {result.returncode}; see {log_dir}")
+    program_files = os.getenv("ProgramFiles", r"C:\Program Files")
+    seven_zip = shutil.which("7z")
+    if seven_zip is None:
+        seven_zip_path = os.path.join(program_files, "7-Zip", "7z.exe")
+        if os.path.isfile(seven_zip_path):
+            seven_zip = seven_zip_path
+    if seven_zip is None:
+        raise RuntimeError("7-Zip is required to extract CUDA on Windows ARM64")
 
-    cuda_root = _find_windows_arm64_cuda_root(toolkit_version, required_paths)
-    if cuda_root is None:
-        raise RuntimeError(f"CUDA {toolkit_version} installation completed but the ARM64 toolkit files were not found")
+    package_names = [package.split("_", 1)[0] for package in config["packages"]]
+    archive_paths = [f"cuda_{package_name}\\{package_name}\\*" for package_name in package_names]
+
+    extraction_dir = installer_dir / "extracted"
+    with contextlib.suppress(FileNotFoundError):
+        shutil.rmtree(cuda_root)
+    with contextlib.suppress(FileNotFoundError):
+        shutil.rmtree(extraction_dir)
+    cuda_root.mkdir(parents=True)
+    print(f"extracting CUDA {toolkit_version} for Windows ARM64 ...")
+    try:
+        subprocess.run(
+            [seven_zip, "x", "-y", "-r", str(installer_path), *archive_paths, f"-o{extraction_dir}"],
+            check=True,
+        )
+        for package_name in package_names:
+            package_root = extraction_dir / f"cuda_{package_name}" / package_name
+            if not package_root.is_dir():
+                raise RuntimeError(f"CUDA package was not found in the installer: {package_name}")
+            shutil.copytree(package_root, cuda_root, copy_function=shutil.copy, dirs_exist_ok=True)
+    except (OSError, RuntimeError, shutil.Error, subprocess.CalledProcessError) as error:
+        shutil.rmtree(cuda_root, ignore_errors=True)
+        raise RuntimeError(f"Failed to extract CUDA {toolkit_version} for Windows ARM64") from error
+    finally:
+        shutil.rmtree(extraction_dir, ignore_errors=True)
+
+    if not all((cuda_root / relative_path).is_file() for relative_path in required_paths):
+        raise RuntimeError(f"CUDA {toolkit_version} extraction completed but the ARM64 toolkit files were not found")
     return cuda_root
 
 
@@ -671,8 +682,8 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
     if _is_windows_arm64():
         required_paths = _get_windows_arm64_cuda_required_paths(helper_args, need_copy_all)
         if not helper_args.offline_build and required_paths:
-            cuda_root = _install_windows_arm64_cuda(nvidia_toolchain_version["windows-arm64"], helper_args,
-                                                    need_copy_all)
+            cuda_root = _resolve_windows_arm64_cuda(nvidia_toolchain_version["windows-arm64"], helper_args,
+                                                    required_paths)
             _copy_windows_arm64_cuda_dependencies(cuda_root, helper_args, need_copy_all)
         _download_and_copy_tcc(helper_args)
         return
