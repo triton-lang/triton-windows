@@ -7,5 +7,16 @@
   "cudart": "13.1.80",
   "cupti": "12.8.90",
   "cupti-windows": "13.3.35",
-  "cupti-blackwell": "13.3.35"
+  "cupti-blackwell": "13.3.35",
+  "windows-arm64": {
+    "toolkit-version": "13.4",
+    "installer-url": "https://packages.nvidia.com/prerelease/cuda/13.4.0/local_installers/cuda_13.4.0_windows_arm64.exe",
+    "installer-min-size": 3221225472,
+    "packages": [
+      "nvcc_13.4",
+      "cudart_13.4",
+      "crt_13.4",
+      "cupti_13.4"
+    ]
+  }
 }

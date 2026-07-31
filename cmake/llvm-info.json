@@ -9,6 +9,7 @@
     "ubuntu-arm64": "c0036e8bd18be160029dd9c24d2c87166fdd182ba6af8bf7ca4476cda4dbaa16",
     "ubuntu-x64": "f20d30fdb2ea3c14ef032245214663ddb99c0ed0a9fdb46e1ebd47d3513d4ada",
     "windows-arm64": "7260cc3e10bdddf690104d4e1ce14d6d7f942d4715e62471b3e0f9b1d8d9ca9f",
-    "windows-x64": "ac84a8d0e63db6b6d155c2ae9714d29aa3d9458d674a840f4684c5c02ce6401a"
+    "windows-x64": "ac84a8d0e63db6b6d155c2ae9714d29aa3d9458d674a840f4684c5c02ce6401a",
+    "windows-arm64": "7260cc3e10bdddf690104d4e1ce14d6d7f942d4715e62471b3e0f9b1d8d9ca9f"
   }
 }
