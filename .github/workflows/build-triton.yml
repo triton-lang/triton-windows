@@ -64,9 +64,27 @@ jobs:
           "commit_sha=$(git rev-parse HEAD)" >> $Env:GITHUB_OUTPUT
 
   build-triton:
-    name: Build ${{ inputs.git_tag }} @ ${{ needs.resolve-ref.outputs.commit_sha }}
+    name: Build ${{ inputs.git_tag }} (${{ matrix.architecture }}) @ ${{ needs.resolve-ref.outputs.commit_sha }}
     needs: resolve-ref
-    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x64
+            runner: windows-2022
+            msvc_arch: x64
+            cibw_arch: AMD64
+            cibw_build: cp3{10,11,12,13,14}
+            cibw_pre_abi3_build: cp3{10,11}
+            wheel_platform: win_amd64
+          - architecture: arm64
+            runner: windows-11-arm
+            msvc_arch: arm64
+            cibw_arch: ARM64
+            cibw_build: cp3{11,12,13,14}
+            cibw_pre_abi3_build: cp311
+            wheel_platform: win_arm64
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       id-token: write
@@ -84,8 +102,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+          architecture: ${{ matrix.architecture }}
 
       - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch }}
 
       - name: Build wheels
         shell: powershell
@@ -97,6 +118,10 @@ jobs:
           TRITON_REL_BUILD_WITH_ASSERTS: ${{ inputs.triton_rel_build_with_asserts }}
           IS_PYTHON_ABI3: ${{ inputs.is_python_abi3 }}
           CIBW_BUILD_OVERRIDE: ${{ inputs.cibw_build_override }}
+          CIBW_ARCHS: ${{ matrix.cibw_arch }}
+          CIBW_DEFAULT_BUILD: ${{ matrix.cibw_build }}
+          CIBW_PRE_ABI3_BUILD: ${{ matrix.cibw_pre_abi3_build }}
+          WHEEL_PLATFORM: ${{ matrix.wheel_platform }}
         run: |
           # Get-ChildItem Env:
           # (Get-WmiObject Win32_Processor).Name
@@ -125,10 +150,10 @@ jobs:
             }
             else
             {
-              $Env:CIBW_BUILD = "cp3{10,11}-win_amd64"
+              $Env:CIBW_BUILD = "$Env:CIBW_PRE_ABI3_BUILD-$Env:WHEEL_PLATFORM"
               cibuildwheel .
 
-              $Env:CIBW_BUILD = "cp312-win_amd64"
+              $Env:CIBW_BUILD = "cp312-$Env:WHEEL_PLATFORM"
               $Env:TRITON_STABLE_ABI = "ON"
               cibuildwheel .
             }
@@ -141,7 +166,7 @@ jobs:
             }
             else
             {
-              $Env:CIBW_BUILD = "cp3{10,11,12,13,14}-win_amd64"
+              $Env:CIBW_BUILD = "$Env:CIBW_DEFAULT_BUILD-$Env:WHEEL_PLATFORM"
             }
 
             if (Test-Path -Path setup.py)
@@ -160,35 +185,36 @@ jobs:
 
       # Currently actions/upload-artifact only supports uploading one file at a time when archive is disabled
       - uses: actions/upload-artifact@v7
+        if: ${{ matrix.architecture == 'x64' }}
         with:
-          path: triton-windows/wheelhouse/*-cp310-cp310-win_amd64.whl
+          path: triton-windows/wheelhouse/*-cp310-cp310-${{ matrix.wheel_platform }}.whl
           archive: false
 
       - uses: actions/upload-artifact@v7
         with:
-          path: triton-windows/wheelhouse/*-cp311-cp311-win_amd64.whl
+          path: triton-windows/wheelhouse/*-cp311-cp311-${{ matrix.wheel_platform }}.whl
           archive: false
 
       - uses: actions/upload-artifact@v7
         if: ${{ inputs.is_python_abi3 }}
         with:
-          path: triton-windows/wheelhouse/*-cp312-abi3-win_amd64.whl
+          path: triton-windows/wheelhouse/*-cp312-abi3-${{ matrix.wheel_platform }}.whl
           archive: false
 
       - uses: actions/upload-artifact@v7
         if: ${{ !inputs.is_python_abi3 }}
         with:
-          path: triton-windows/wheelhouse/*-cp312-cp312-win_amd64.whl
+          path: triton-windows/wheelhouse/*-cp312-cp312-${{ matrix.wheel_platform }}.whl
           archive: false
 
       - uses: actions/upload-artifact@v7
         if: ${{ !inputs.is_python_abi3 }}
         with:
-          path: triton-windows/wheelhouse/*-cp313-cp313-win_amd64.whl
+          path: triton-windows/wheelhouse/*-cp313-cp313-${{ matrix.wheel_platform }}.whl
           archive: false
 
       - uses: actions/upload-artifact@v7
         if: ${{ !inputs.is_python_abi3 }}
         with:
-          path: triton-windows/wheelhouse/*-cp314-cp314-win_amd64.whl
+          path: triton-windows/wheelhouse/*-cp314-cp314-${{ matrix.wheel_platform }}.whl
           archive: false
