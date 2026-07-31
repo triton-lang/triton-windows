@@ -819,6 +819,12 @@ __MAKE_VECTOR_TYPE__(double, double);
 #else  // !defined(__has_attribute)
 
 #if defined(_MSC_VER)
+#if defined(_M_ARM64)
+#ifndef USE_SOFT_INTRINSICS
+#define USE_SOFT_INTRINSICS
+#endif
+#include <intrin.h>
+#endif
 #include <mmintrin.h>
 #include <xmmintrin.h>
 #include <emmintrin.h>

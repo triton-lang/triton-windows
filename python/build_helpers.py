@@ -698,6 +698,10 @@ def download_and_copy_amd_codegen(helper_args: BuildHelperArgs):
     shutil.copy2(source_path, destination_path)
 
 
+def _is_windows_arm64():
+    return platform.system() == "Windows" and platform.machine().lower() in ("arm64", "aarch64")
+
+
 def download_and_copy(name, src_func, dst_path, override_path, version, url_func, helper_args: BuildHelperArgs):
     if helper_args.offline_build:
         return
@@ -708,9 +712,7 @@ def download_and_copy(name, src_func, dst_path, override_path, version, url_func
     system = platform.system()
     arch = platform.machine()
     # NOTE: This might be wrong for jetson if both grace chips and jetson chips return aarch64
-    # On Windows ARM64, platform.machine() returns "ARM64". Map it to "x86_64" so we
-    # download Windows x64 NVIDIA headers, which are compatible for compilation on ARM64.
-    arch = {"AMD64": "x86_64", "ARM64": "x86_64", "arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
+    arch = {"AMD64": "x86_64", "ARM64": "arm64", "arm64": "sbsa", "aarch64": "sbsa"}.get(arch, arch)
     supported = {"Linux": "linux", "Darwin": "linux", "Windows": "windows"}
     url = url_func(supported[system], arch, version)
     src_path = src_func(supported[system], arch, version)
@@ -760,6 +762,9 @@ def get_nvidia_toolchain_packages(need_copy_all=False):
     nvidia_version_path = os.path.join(get_base_dir(), "cmake", "nvidia-toolchain-version.json")
     with open(nvidia_version_path, "r") as nvidia_version_file:
         versions = json.load(nvidia_version_file)
+    # CUDA redistributes Windows ARM64 packages only since CUDA 13.4, so those versions are pinned separately
+    is_windows_arm64 = _is_windows_arm64()
+    versions.update(versions.get("windows-arm64", {}) if is_windows_arm64 else {})
     exe = sysconfig.get_config_var("EXE")
     packages = [
         NvidiaToolchainPackage(
@@ -820,6 +825,7 @@ def get_nvidia_toolchain_packages(need_copy_all=False):
             ),
         ])
     else:
+        cuda_lib_arch = "arm64" if is_windows_arm64 else "x64"
         packages.extend([
             NvidiaToolchainPackage(
                 name=f"nvidia/cudart-{versions['cudart']}",
@@ -833,8 +839,8 @@ def get_nvidia_toolchain_packages(need_copy_all=False):
                 name=f"nvidia/cudart-{versions['cudart']}",
                 component="cuda_cudart",
                 version=versions["cudart"],
-                src_path="lib/x64/cuda.lib",
-                dst_path="third_party/nvidia/backend/lib/x64/cuda.lib",
+                src_path=f"lib/{cuda_lib_arch}/cuda.lib",
+                dst_path=f"third_party/nvidia/backend/lib/{cuda_lib_arch}/cuda.lib",
                 override_attr="cudart_path",
             ),
         ])
@@ -844,6 +850,7 @@ def get_nvidia_toolchain_packages(need_copy_all=False):
 def download_and_copy_dependencies(helper_args: BuildHelperArgs):
     download_and_copy_amd_codegen(helper_args)
 
+    is_windows = platform.system() == "Windows"
     need_copy_all = (check_env_flag("TRITON_BUILD_PROTON", "ON") or check_env_flag("TRITON_BUILD_GSAN"))
     for package in get_nvidia_toolchain_packages(need_copy_all):
         download_and_copy(
@@ -858,6 +865,7 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
 
     if is_windows:
         tinycc_version = "0.9.28rc-1d8b731"
+        tinycc_arch = "arm64" if _is_windows_arm64() else "x64"
         download_and_copy(
             name=f"tcc/tcc-{tinycc_version}",
             src_func=lambda system, arch, version: ".",
@@ -865,7 +873,7 @@ def download_and_copy_dependencies(helper_args: BuildHelperArgs):
             override_path=None,
             version=tinycc_version,
             url_func=lambda system, arch, version:
-            f"https://github.com/woct0rdho/tinycc/releases/download/v{version}/tcc-{version}-windows-x64.zip",
+            f"https://github.com/woct0rdho/tinycc/releases/download/v{version}/tcc-{version}-windows-{tinycc_arch}.zip",
             helper_args=helper_args,
         )
 
