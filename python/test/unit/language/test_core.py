@@ -2551,6 +2551,8 @@ scan_configs = [(op, type, shape, axis, reverse, num_warps)
 negative_config = [('cumsum', 'float32', (32, 32), -1, False, 4)]
 
 
+@pytest.mark.xfail(is_hip_rdna3() and not get_arch().startswith("gfx115"),
+                   reason="Fixed in Triton 3.8 by an LLVM version bump")
 def test_sum_dtype(device):
 
     @triton.jit
