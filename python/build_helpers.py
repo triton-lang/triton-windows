@@ -565,7 +565,8 @@ def _resolve_windows_arm64_cuda(config: dict, helper_args: BuildHelperArgs, requ
     print(f"extracting CUDA {toolkit_version} for Windows ARM64 ...")
     try:
         subprocess.run(
-            [seven_zip, "x", "-y", "-r", str(installer_path), *archive_paths, f"-o{extraction_dir}"],
+            [seven_zip, "x", "-y", "-r",
+             str(installer_path), *archive_paths, f"-o{extraction_dir}"],
             check=True,
         )
         for package_name in package_names:
