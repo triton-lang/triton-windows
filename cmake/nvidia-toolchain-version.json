@@ -7,5 +7,12 @@
   "cudart": "13.1.80",
   "cupti": "12.8.90",
   "cupti-windows": "13.3.35",
-  "cupti-blackwell": "13.3.35"
+  "cupti-blackwell": "13.3.35",
+  "windows-arm64": {
+    "ptxas": "13.4.59",
+    "cudacrt": "13.4.59",
+    "cudart": "13.4.49",
+    "cupti": "13.4.58",
+    "cupti-windows": "13.4.58"
+  }
 }
