@@ -101,9 +101,11 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
           .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
-          python -m pip install --upgrade numpy pytest-xdist pytest-timeout scipy expecttest
+          python -m pip install --upgrade cloudpickle numpy pytest-xdist pytest-timeout scipy expecttest
           python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ "rocm[libraries,devel]==7.${{ inputs.rocm_minor }}.0a${{ inputs.rocm_date }}" "torch==2.${{ inputs.torch_minor }}.0+rocm7.${{ inputs.rocm_minor }}.0a${{ inputs.rocm_date }}"
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
           cd ../python/test/unit
-          pytest ${{ inputs.pytest_args }}
+          # Load shared fixtures without letting the folder `python\` shadow the installed wheel.
+          $Env:PYTHONPATH = (Resolve-Path ..\..\..).Path
+          python -m pytest --confcutdir=.. -p python.conftest ${{ inputs.pytest_args }}
