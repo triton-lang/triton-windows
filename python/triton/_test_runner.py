@@ -79,7 +79,10 @@ def _run(command, *, phase=None, num_gpus=None, cwd=ROOT, environment=None, time
         return process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         print(f"test command exceeded its {timeout}-second timeout: {' '.join(command)}", file=sys.stderr)
-        os.killpg(process.pid, signal.SIGKILL)
+        if os.name == "nt":
+            process.kill()
+        else:
+            os.killpg(process.pid, signal.SIGKILL)
         process.wait()
         return 1
 
