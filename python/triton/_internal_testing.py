@@ -33,6 +33,11 @@ tma_dtypes = sorted(set(dtypes_with_bfloat16) - {"int64", "uint64", "float64"})
 _PROCESS_POOL = None
 
 
+def _get_process_context():
+    start_method = "forkserver" if "forkserver" in multiprocessing.get_all_start_methods() else "spawn"
+    return multiprocessing.get_context(start_method)
+
+
 def is_interpreter():
     return os.environ.get('TRITON_INTERPRET', '0') == '1'
 
@@ -334,7 +339,7 @@ class ReplenishingProcessPool:
     def __init__(self, preload_module):
         self.preload_module = preload_module
         self.triton_key = triton.runtime.cache.triton_key()
-        self.ctx = multiprocessing.get_context("forkserver")
+        self.ctx = _get_process_context()
         self.worker = None
         self.spare = None
 
@@ -414,7 +419,7 @@ def run_in_process(client_fn, args=(), kwargs=None, env=None):
     if kwargs is None:
         kwargs = {}
 
-    ctx = multiprocessing.get_context("forkserver")
+    ctx = _get_process_context()
     result_pipe, child_pipe = ctx.Pipe(duplex=False)
     with tempfile.TemporaryDirectory() as tmpdir:
         stderr_file = os.path.join(tmpdir, "err.log")
