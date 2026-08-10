@@ -23,6 +23,8 @@ from cloudpickle.cloudpickle import CloudPickler, _extract_code_globals
 
 import triton
 
+_CONNECTION_FAMILY = "AF_PIPE" if os.name == "nt" else "AF_UNIX"
+
 
 class _UnsupportedPreloadError(Exception):
     pass
@@ -334,7 +336,7 @@ class ProcessPoolWarmupDispatcher:
         if max_workers < 1:
             raise ValueError(f"max_workers must be >= 1, got {max_workers}")
         coordinator = os.environ.get("TRITON_WARMUP_COORDINATOR")
-        self._connection = Client(coordinator, family="AF_UNIX") if coordinator else None
+        self._connection = Client(coordinator, family=_CONNECTION_FAMILY) if coordinator else None
         self._executor = None
         if self._connection is None:
             context = mp.get_context("spawn")
@@ -564,8 +566,12 @@ class SharedWarmupCoordinator:
 
     def __init__(self, *, max_workers, trace_directory):
         self._directory = tempfile.TemporaryDirectory(prefix="triton-warmup-")
-        self.address = os.path.join(self._directory.name, "coordinator.sock")
-        self._listener = Listener(self.address, family="AF_UNIX")
+        self.family = _CONNECTION_FAMILY
+        if self.family == "AF_PIPE":
+            self.address = rf"\\.\pipe\{os.path.basename(self._directory.name)}-coordinator"
+        else:
+            self.address = os.path.join(self._directory.name, "coordinator.sock")
+        self._listener = Listener(self.address, family=self.family)
         self._dispatcher = ProcessPoolWarmupDispatcher(max_workers=max_workers, trace_directory=trace_directory,
                                                        phase="warmup")
         self._connections = []
@@ -598,7 +604,7 @@ class SharedWarmupCoordinator:
             connection.close()
 
     def close(self):
-        stopper = Client(self.address, family="AF_UNIX")
+        stopper = Client(self.address, family=self.family)
         stopper.send(None)
         stopper.close()
         self._accept_thread.join()
