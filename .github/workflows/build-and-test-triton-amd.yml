@@ -13,6 +13,11 @@ on:
         required: true
         type: string
         default: '13'
+      rocm_major:
+        description: ROCm major version
+        required: true
+        type: string
+        default: '7'
       rocm_minor:
         description: ROCm minor version
         required: true
@@ -32,7 +37,7 @@ on:
         description: pytest args
         required: true
         type: string
-        default: '-n 8 -k "not test_kwargs and not test_load_scope_sem_coop_grid_cta_one and not test_sum_dtype and not test_triton_to_gluon" --tb=short'
+        default: '-n 8 --tb=short'
 
 jobs:
   pre-commit:
@@ -44,8 +49,14 @@ jobs:
     runs-on: triton-windows1
     env:
       PIP_CACHE_DIR: E:\pip-cache
+      PYTHON_MINOR: ${{ inputs.python_minor }}
+      ROCM_MAJOR: ${{ inputs.rocm_major }}
+      ROCM_MINOR: ${{ inputs.rocm_minor }}
+      ROCM_DATE: ${{ inputs.rocm_date }}
+      TORCH_MINOR: ${{ inputs.torch_minor }}
+      PYTEST_ADDOPTS: ${{ inputs.pytest_args }}
     steps:
-      - uses: astral-sh/setup-uv@v8.1.0
+      - uses: astral-sh/setup-uv@v9.0.0
 
       - name: Clean caches
         shell: powershell
@@ -55,7 +66,7 @@ jobs:
           if (Test-Path -Path triton-windows/python/build) { rm -r triton-windows/python/build }
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.git_tag || github.ref }}
           path: triton-windows
@@ -64,8 +75,8 @@ jobs:
       - name: Create venv
         shell: powershell
         run: |
-          uv venv .venv-cp3${{ inputs.python_minor }} --python 3.${{ inputs.python_minor }} --clear
-          .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
+          uv venv ".venv-cp3$Env:PYTHON_MINOR" --python "3.$Env:PYTHON_MINOR" --clear
+          & ".venv-cp3$Env:PYTHON_MINOR\Scripts\activate.ps1"
           python -m ensurepip --upgrade
           python -m pip install --upgrade pip
 
@@ -73,14 +84,14 @@ jobs:
         shell: powershell
         run: |
           & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
-          .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
+          & ".venv-cp3$Env:PYTHON_MINOR\Scripts\activate.ps1"
           python -m pip install --upgrade cibuildwheel
 
           cd triton-windows
           git rev-parse HEAD
 
           $Env:TRITON_BUILD_PROTON = "0"
-          $Env:CIBW_BUILD = "{cp3${{ inputs.python_minor }}-win_amd64,}"
+          $Env:CIBW_BUILD = "{cp3$Env:PYTHON_MINOR-win_amd64,}"
           $Env:CIBW_BUILD_VERBOSITY = "1"
           if (Test-Path -Path wheelhouse) { rm wheelhouse/* }
           if (Test-Path -Path setup.py)
@@ -100,12 +111,28 @@ jobs:
         shell: powershell
         run: |
           & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
-          .venv-cp3${{ inputs.python_minor }}\Scripts\activate.ps1
+          & ".venv-cp3$Env:PYTHON_MINOR\Scripts\activate.ps1"
           python -m pip install --upgrade cloudpickle numpy pytest-xdist pytest-timeout scipy expecttest
-          python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ "rocm[libraries,devel]==7.${{ inputs.rocm_minor }}.0a${{ inputs.rocm_date }}" "torch==2.${{ inputs.torch_minor }}.0+rocm7.${{ inputs.rocm_minor }}.0a${{ inputs.rocm_date }}"
+
+          $rocmVersion = "$Env:ROCM_MAJOR.$Env:ROCM_MINOR.0a$Env:ROCM_DATE"
+          $torchVersion = "2.$Env:TORCH_MINOR.0+rocm$rocmVersion"
+          if ([int]::Parse($Env:ROCM_DATE) -ge 20260520)
+          {
+            $indexUrl = "https://rocm.nightlies.amd.com/whl-multi-arch/"
+            $rocmRequirement = "rocm[libraries,devel,device-gfx1101]==$rocmVersion"
+            $torchRequirement = "torch[device-gfx1101]==$torchVersion"
+          }
+          else
+          {
+            $indexUrl = "https://rocm.nightlies.amd.com/v2/gfx110X-all/"
+            $rocmRequirement = "rocm[libraries,devel]==$rocmVersion"
+            $torchRequirement = "torch==$torchVersion"
+          }
+          python -m pip install --index-url $indexUrl $rocmRequirement $torchRequirement
+
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
           cd ../python/test/unit
           # Load shared fixtures without letting the folder `python\` shadow the installed wheel.
           $Env:PYTHONPATH = (Resolve-Path ..\..\..).Path
-          python -m pytest --confcutdir=.. -p python.conftest ${{ inputs.pytest_args }}
+          python -m pytest --confcutdir=.. -p python.conftest
