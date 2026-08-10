@@ -94,7 +94,7 @@ def test_compile_warmup_coordinator_deduplicates_and_propagates_errors(monkeypat
 
     monkeypatch.setattr(coordinator._dispatcher._executor, "submit", submit)
     for _ in range(2):
-        connection = Client(coordinator.address, family="AF_UNIX")
+        connection = Client(coordinator.address, family=coordinator.family)
         connection.send(("same-specialization", ()))
         connection.close()
     if fails:
