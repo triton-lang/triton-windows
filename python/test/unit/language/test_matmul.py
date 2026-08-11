@@ -1051,6 +1051,8 @@ def test_block_scale_fp4(M, N, K, BLOCK_M, BLOCK_N, BLOCK_K, VEC_SIZE, with_a_sc
             pytest.skip("fp8e4nv not supported on Ampere or older")
         if BLOCK_N == 256 and BLOCK_K == 256 and torch.cuda.get_device_capability()[0] < 9:
             pytest.skip("Insufficient SMEM Ampere or older")
+        if (torch.cuda.get_device_capability()[0] == 12 and not pack_along_k and BLOCK_N == 256 and BLOCK_K == 256):
+            pytest.skip("Decomposed SM12 MN-packed config requires too much shared memory")
         if not (with_a_scale and with_b_scale):
             pytest.skip("None aScale/bScale is only tested on AMD backend for now")
     elif is_hip():
@@ -1110,7 +1112,8 @@ def test_block_scale_fp4(M, N, K, BLOCK_M, BLOCK_N, BLOCK_K, VEC_SIZE, with_a_sc
                                      BLOCK_N, BLOCK_K, NUM_STAGES=NUM_STAGES, PACK_ALONG_K=pack_along_k,
                                      **kernel_kwargs)
     torch.testing.assert_close(ref_out, output, atol=1e-3, rtol=1e-3)
-    nvfp4_fallback = BLOCK_M < 128
+    sm12_mn_packed_fallback = (is_cuda() and torch.cuda.get_device_capability()[0] == 12 and not pack_along_k)
+    nvfp4_fallback = BLOCK_M < 128 or sm12_mn_packed_fallback
     if is_cuda() and torch.cuda.get_device_capability()[0] in (10, 12) and not nvfp4_fallback:
         ptx = k.asm["ptx"]
         if pack_along_k:
