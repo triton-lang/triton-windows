@@ -1375,8 +1375,11 @@ def test_batched_mxfp(BATCH_SIZE, BLOCK_BATCH_SIZE, BLOCK_M, BLOCK_N, BLOCK_K, N
 
     if K % BLOCK_K != 0:
         pytest.skip("Kernel requires shapes aligned by K dimension")
-    if is_cuda() and torch.cuda.get_device_capability()[0] < 10:
-        pytest.skip("Requires compute capability >= 10")
+    if is_cuda():
+        if torch.cuda.get_device_capability()[0] < 10:
+            pytest.skip("Requires compute capability >= 10")
+        if torch.cuda.get_device_capability()[0] == 12 and BLOCK_BATCH_SIZE > 1 and NUM_STAGES > 1:
+            pytest.skip("Config requires too much shared memory")
     elif is_hip():
         if not (is_hip_cdna4() or is_hip_gfx1250()):
             pytest.skip("Scaled mxfp8 matmul is only natively supported on CDNA4 and above")
