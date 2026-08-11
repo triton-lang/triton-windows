@@ -1,24 +1,24 @@
-import sys
 import importlib.util
+import sys
+
+import pytest
 import torch
 import triton
 import triton.language as tl
-import pytest
-from triton.tools.tensor_descriptor import TensorDescriptor
-from triton.tools.mxfp import MXFP4Tensor, MXScaleTensor
-
-from triton.tools.triton_to_gluon_translator.translator import convert_triton_to_gluon
-from triton.tools.triton_to_gluon_translator.target import TranslatorTarget
 from triton._internal_testing import (
     is_blackwell,
-    is_hopper_or_newer,
     is_cuda,
+    is_hip_cdna3_or_newer,
     is_hip_cdna4,
     is_hip_gfx1250,
-    is_hip_cdna3_or_newer,
     is_hip_rdna,
+    is_hopper_or_newer,
 )
 from triton.language.target_info import current_target
+from triton.tools.mxfp import MXFP4Tensor, MXScaleTensor
+from triton.tools.tensor_descriptor import TensorDescriptor
+from triton.tools.triton_to_gluon_translator.target import TranslatorTarget
+from triton.tools.triton_to_gluon_translator.translator import convert_triton_to_gluon
 
 pytestmark = pytest.mark.skipif(
     is_hip_rdna(),
@@ -95,6 +95,17 @@ def impl_matmul_tile_kernel(a_ptr, b_ptr, c_ptr, M: tl.constexpr, N: tl.constexp
 @triton.jit
 def matmul_tile_kernel(a_ptr, b_ptr, c_ptr, BLOCK_M: tl.constexpr, BLOCK_N: tl.constexpr, BLOCK_K: tl.constexpr):
     impl_matmul_tile_kernel(a_ptr, b_ptr, c_ptr, BLOCK_M, BLOCK_N, BLOCK_K)
+
+
+@pytest.mark.parametrize("target", [TranslatorTarget.SM120, TranslatorTarget.SM121])
+def test_sm12x_target_translation(target):
+    assert target.is_nvidia
+    assert target.helpers_module.endswith(".nvidia_helpers")
+    converted = convert_triton_to_gluon([matmul_tile_kernel], target=target)
+    assert "import triton.tools.triton_to_gluon_translator.nvidia_helpers as helpers" in converted
+    assert "helpers.tl_dot" in converted
+    converted_scaled = convert_triton_to_gluon([dot_scaled_tile_kernel], target=target)
+    assert "helpers.tl_dot_scaled" in converted_scaled
 
 
 def test_triton_to_gluon_dot_minimal(tmp_path):
