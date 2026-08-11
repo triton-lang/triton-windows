@@ -133,6 +133,11 @@ jobs:
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
           cd ../python/test/unit
-          # Load shared fixtures without letting the folder `python\` shadow the installed wheel.
-          $Env:PYTHONPATH = (Resolve-Path ..\..\..).Path
-          python -m pytest --confcutdir=.. -p python.conftest
+          $pytestArgs = @("--confcutdir=..")
+          if (Test-Path ..\..\conftest.py)
+          {
+            # Load shared fixtures without letting the folder `python\` shadow the installed wheel.
+            $Env:PYTHONPATH = (Resolve-Path ..\..\..).Path
+            $pytestArgs += @("-p", "python.conftest")
+          }
+          python -m pytest @pytestArgs
