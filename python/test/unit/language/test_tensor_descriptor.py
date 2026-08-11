@@ -837,7 +837,9 @@ def test_tensor_descriptor_batched_gemm_2d_tma(device):
 
     def alloc_fn(size: int, align: int, stream: Optional[int]):
         # TODO: should only need num_stages * 3 descriptors per SM
-        assert size == 128 * 3 * (num_stages + 1) * grid[0]
+        # sm12x has no async dot, so its pipeline is one stage shorter.
+        num_desc_buffers = num_stages if is_sm12x() else num_stages + 1
+        assert size == 128 * 3 * num_desc_buffers * grid[0]
         assert align == 128
         assert stream == 0
         return torch.empty(size, dtype=torch.int8, device=device)
