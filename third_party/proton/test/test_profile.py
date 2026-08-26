@@ -6,9 +6,9 @@ Each test should invoke one or more GPU kernels and check the validity of their 
 import os
 import pathlib
 
+import torch
 import triton
 import triton.profiler as proton
-import torch
 import json
 import pytest
 from typing import NamedTuple
