@@ -1,6 +1,5 @@
-import triton.profiler as proton
-
 import torch
+import triton.profiler as proton
 import sys
 
 from helper_kernels import custom_add, matmul_kernel

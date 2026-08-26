@@ -1,8 +1,8 @@
+import torch
 import triton
 import triton.language as tl
 
 import pytest
-import torch
 
 
 def is_hip():
@@ -155,9 +155,9 @@ def test_mir_swap_pipeline(tmp_path, monkeypatch):
 
 
 _SIMPLE_KERNEL_SCRIPT = '''
+import torch
 import triton
 import triton.language as tl
-import torch
 
 @triton.jit
 def simple_kernel(x_ptr, output_ptr, n_elements, BLOCK_SIZE: tl.constexpr):
@@ -367,9 +367,9 @@ def _extract_mc_around_sched(output_text):
 
 # Kernel script with enough independent operations for the scheduler to reorder
 _COMPLEX_KERNEL_SCRIPT = '''
+import torch
 import triton
 import triton.language as tl
-import torch
 
 @triton.jit
 def complex_kernel(a_ptr, b_ptr, c_ptr, d_ptr, output_ptr, n_elements, BLOCK_SIZE: tl.constexpr):
