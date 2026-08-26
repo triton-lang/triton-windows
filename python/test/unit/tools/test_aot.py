@@ -21,20 +21,38 @@ if is_cuda():
         return ["cuda"]
 
 elif is_hip():
-    from triton.backends.amd.driver import include_dirs
+    from triton.backends.amd.driver import _rocm_root, include_dirs
 
     if os.name == "nt":
+        import ctypes
         from triton.windows_utils import find_hip
+
+        _rocm_bin = os.path.join(_rocm_root, "bin")
+        _rocm_lib = os.path.join(_rocm_root, "lib")
 
     def library_dirs():
         if os.name == "nt":
             _, _, lib_dirs = find_hip()
-            return lib_dirs
+            return [_rocm_lib] + lib_dirs
         from triton.backends.amd.driver import _get_path_to_hip_runtime_dylib
         return [os.path.dirname(_get_path_to_hip_runtime_dylib())]
 
     def library_names():
         return ["amdhip64"]
+
+
+def _run_aot_executable(command, **kwargs):
+    if os.name == "nt" and is_hip():
+        set_dll_directory = ctypes.WinDLL("kernel32", use_last_error=True).SetDllDirectoryW
+        set_dll_directory.argtypes = [ctypes.c_wchar_p]
+        set_dll_directory.restype = ctypes.c_bool
+        if not set_dll_directory(_rocm_bin):
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            return subprocess.run(command, **kwargs)
+        finally:
+            set_dll_directory(None)
+    return subprocess.run(command, **kwargs)
 
 
 def _find_lib():
@@ -493,7 +511,7 @@ def test_compile_link_matmul_no_specialization():
         else:
             exe = "test"
         exe = os.path.join(tmp_dir, exe)
-        subprocess.run([exe, a_path, b_path, c_path], env=env, check=True, cwd=tmp_dir)
+        _run_aot_executable([exe, a_path, b_path, c_path], env=env, check=True, cwd=tmp_dir)
 
         # read data and compare against reference
         c = np.genfromtxt(c_path, delimiter=",", dtype=np.int32)
@@ -530,7 +548,7 @@ def test_compile_link_matmul():
         else:
             exe = "test"
         exe = os.path.join(tmp_dir, exe)
-        subprocess.run([exe, a_path, b_path, c_path], env=env, check=True, cwd=tmp_dir)
+        _run_aot_executable([exe, a_path, b_path, c_path], env=env, check=True, cwd=tmp_dir)
 
         # read data and compare against reference
         c = np.genfromtxt(c_path, delimiter=",", dtype=np.int32)
@@ -568,7 +586,7 @@ def test_launcher_has_no_available_kernel():
         else:
             exe = "test"
         exe = os.path.join(tmp_dir, exe)
-        result = subprocess.run(
+        result = _run_aot_executable(
             [exe, a_path, b_path, c_path],
             env=env,
             cwd=tmp_dir,
@@ -628,7 +646,7 @@ def test_compile_link_autotune_matmul():
             else:
                 exe = test_name
             exe = os.path.join(tmp_dir, exe)
-            subprocess.run(
+            _run_aot_executable(
                 [exe, a_path, b_path, c_path],
                 check=True,
                 cwd=tmp_dir,
