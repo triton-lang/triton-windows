@@ -1,7 +1,6 @@
+import torch
 import triton
 import triton.language as tl
-
-import torch
 import math
 
 _BLOCK_SIZE = 16
