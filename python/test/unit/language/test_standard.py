@@ -219,6 +219,9 @@ def test_softmax_keep_dims_deprecated(keep_dims, member, device, fresh_triton_ca
     z = torch.empty_like(x)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
+        # nanobind emits this unrelated warning when LLVM functions are iterated on Python 3.13+
+        warnings.filterwarnings("ignore", message=r"builtin type iterator has no __module__ attribute",
+                                category=DeprecationWarning)
         kernel[(1, )](x, z, keep_dims, member)
     if keep_dims is None:
         assert not caught
