@@ -1,8 +1,8 @@
 import warnings
 
-import triton
 import pytest
 import torch
+import triton
 import triton.language as tl
 
 from test_core import _test_binary, int_dtypes, uint_dtypes, float_dtypes, numpy_random
