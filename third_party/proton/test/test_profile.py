@@ -9,9 +9,9 @@ import pathlib
 import subprocess
 import sys
 
+import torch
 import triton
 import triton.profiler as proton
-import torch
 import json
 import pytest
 from typing import NamedTuple
