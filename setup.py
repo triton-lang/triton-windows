@@ -292,9 +292,9 @@ class CMakeBuild(build_ext):
         if therock_include_dir is not None:
             print(f"Using TheRock ROCm headers from {therock_include_dir}", file=sys.stderr)
 
+        bundled_rocm_include_dir = os.path.join(get_base_dir(), "third_party", "amd", "backend", "include")
         if not rocm_include_dir:
-            rocm_include_dir = therock_include_dir or os.path.join(get_base_dir(), "third_party", "amd", "backend",
-                                                                   "include")
+            rocm_include_dir = therock_include_dir + ";" + bundled_rocm_include_dir
         cmake_args += ["-DROCM_INCLUDE_DIR=" + rocm_include_dir]
 
         if not rocprofiler_sdk_include_dir:
