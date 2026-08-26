@@ -375,10 +375,7 @@ def get_llvm_package_info(helper_args: BuildHelperArgs):
     name = f"llvm-{rev}-{system_suffix}-{build_number}"
     # Create a stable symlink that doesn't include revision
     sym_name = f"llvm-{system_suffix}"
-    if system_suffix == "windows-arm64":
-        url = "https://github.com/vortex-captain/triton/releases/download/3.8.x/llvm-46111560-windows-arm64-1.tar.gz"
-    else:
-        url = f"https://oaitriton.blob.core.windows.net/public/llvm-builds/{name}.tar.gz"
+    url = f"https://oaitriton.blob.core.windows.net/public/llvm-builds/{name}.tar.gz"
     sha256sum = llvm_info["sha256sum"][system_suffix]
     return Package(
         "llvm",
