@@ -1,8 +1,8 @@
 import pytest
+import torch
 import triton
 import triton.language as tl
 from typing import NamedTuple
-import torch
 
 
 @triton.jit
