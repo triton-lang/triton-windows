@@ -17,6 +17,18 @@ import os
 import time
 import copy
 
+
+# --- Shim for PyTorch Inductor compatibility ---
+# PyTorch's torch._inductor.codecache and torch._inductor.async_compile import
+# `triton_key` from this module, but it was removed/renamed in Triton 3.x
+# (replaced by `runtime.cache.get_cache_key` with a different signature).
+# Provide a simple version-based cache key so torch.compile works out of the box
+# with triton-windows + recent PyTorch releases.
+def triton_key() -> str:
+    """Return a stable cache-invalidation key for the installed Triton version."""
+    return __version__
+
+
 # - ^\s*tt\.func\s+ : match the start of the string, any leading whitespace, the keyword func,
 #    and any following whitespace
 # - (public\s+)? : optionally match the keyword public and any following whitespace
