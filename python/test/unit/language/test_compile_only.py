@@ -189,9 +189,15 @@ module attributes {"ttg.num-ctas" = 2 : i32, "ttg.num-warps" = 4 : i32, ttg.targ
     assert k.asm["cubin"] != b""
 
 
+def _is_gsan_built() -> bool:
+    return hasattr(triton._C.libtriton, "gsan_testing")
+
+
 @pytest.mark.parametrize("instrumentation_mode", ["", "consan", "gsan", "iisan", "fpsan", "gsan,consan"])
 def test_maxnreg_instrumentation_mode(instrumentation_mode, monkeypatch):
     if "gsan" in instrumentation_mode:
+        if not _is_gsan_built():
+            pytest.skip("GSan is not built in this configuration")
         # GSan queries the shared memory limit even for compile-only tests.
         utils = SimpleNamespace(get_device_properties=lambda _: {"max_shared_mem": 228 * 1024})
         monkeypatch.setattr(driver, "_active", SimpleNamespace(get_current_device=lambda: 0, utils=utils))
