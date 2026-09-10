@@ -360,9 +360,10 @@ class CMakeBuild(build_ext):
             cmake_args += ["-DCMAKE_MODULE_LINKER_FLAGS_INIT=/Brepro"]
             cmake_args += ["-DCMAKE_SHARED_LINKER_FLAGS_INIT=/Brepro"]
             cmake_args += ["-DCMAKE_STATIC_LINKER_FLAGS_INIT=/Brepro"]
+
         # This tests for "--jobserver-auth=fifo:" rather than "--jobserver-auth" because ninja
         # only supports a jobserver in fifo mode. In other cases, use a default job count.
-        elif "--jobserver-auth=fifo:" not in os.environ.get("MAKEFLAGS", ""):
+        if "--jobserver-auth=fifo:" not in os.environ.get("MAKEFLAGS", ""):
             max_jobs = os.getenv("MAX_JOBS", str(2 * os.cpu_count()))
             build_args += ['-j' + max_jobs]
 
