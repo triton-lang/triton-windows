@@ -436,7 +436,7 @@ def test_amd_codegen_preserves_mir_replacement(fresh_knobs, monkeypatch):
         assembly = backend.make_amdgcn(source, {}, compiler.HIPOptions(arch="gfx942"))
 
     assert len(replacement_calls) == 1
-    assert replacement_calls[0][0].startswith("/custom/mir/test_kernel_")
+    assert normalize(replacement_calls[0][0]).startswith("/custom/mir/test_kernel_")
     assert replacement_calls[0][0].endswith(".txt")
     assert "s_endpgm" in assembly
 
