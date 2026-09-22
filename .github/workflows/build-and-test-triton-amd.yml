@@ -19,12 +19,27 @@ on:
         description: Python minor version
         required: true
         type: string
-        default: '13'
+        default: '12'
+      is_python_abi3:
+        description: Is Python ABI3
+        required: false
+        type: boolean
+        default: true
+      rocm_version:
+        description: 'ROCm version (e.g. 10.1.0a20260823). Leave empty to use the latest ROCm and PyTorch wheels'
+        required: false
+        type: string
+        default: ''
+      torch_version:
+        description: 'PyTorch version (e.g. 2.14.0). Required when rocm_version is set'
+        required: false
+        type: string
+        default: ''
       pytest_args:
         description: pytest args
         required: true
         type: string
-        default: '-n 8'
+        default: '-n 8 --tb=short'
 
 jobs:
   pre-commit:
@@ -34,10 +49,21 @@ jobs:
     runs-on: triton-windows1
     env:
       PIP_CACHE_DIR: E:\pip-cache
-      PYTHON_MINOR: ${{ inputs.python_minor || '13' }}
-      PYTEST_ARGS: ${{ inputs.pytest_args || '-n 8' }}
+      PYTHON_MINOR: ${{ inputs.python_minor || '12' }}
+      IS_PYTHON_ABI3: ${{ github.event_name != 'workflow_dispatch' || inputs.is_python_abi3 }}
+      ROCM_VERSION: ${{ inputs.rocm_version }}
+      TORCH_VERSION: ${{ inputs.torch_version }}
+      PYTEST_ADDOPTS: ${{ inputs.pytest_args || '-n 8 --tb=short' }}
     steps:
-      - uses: astral-sh/setup-uv@v7
+      - name: Validate inputs
+        shell: powershell
+        run: |
+          if ($Env:ROCM_VERSION -and -not $Env:TORCH_VERSION)
+          {
+            throw "torch_version is required when rocm_version is set"
+          }
+
+      - uses: astral-sh/setup-uv@v9.0.0
 
       - name: Clean caches
         shell: powershell
@@ -47,7 +73,7 @@ jobs:
           if (Test-Path -Path triton-windows/python/build) { rm -r triton-windows/python/build }
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.git_tag || github.ref }}
           path: triton-windows
@@ -56,8 +82,8 @@ jobs:
       - name: Create venv
         shell: powershell
         run: |
-          uv venv .venv-cp3${{ env.PYTHON_MINOR }} --python 3.${{ env.PYTHON_MINOR }} --clear
-          .venv-cp3${{ env.PYTHON_MINOR }}\Scripts\activate.ps1
+          uv venv ".venv-cp3$Env:PYTHON_MINOR" --python "3.$Env:PYTHON_MINOR" --clear
+          & ".venv-cp3$Env:PYTHON_MINOR\Scripts\activate.ps1"
           python -m ensurepip --upgrade
           python -m pip install --upgrade pip
 
@@ -65,16 +91,30 @@ jobs:
         shell: powershell
         run: |
           & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
-          .venv-cp3${{ env.PYTHON_MINOR }}\Scripts\activate.ps1
+          & ".venv-cp3$Env:PYTHON_MINOR\Scripts\activate.ps1"
           python -m pip install --upgrade cibuildwheel
 
           cd triton-windows
           git rev-parse HEAD
 
           $Env:TRITON_BUILD_PROTON = "0"
-          $Env:CIBW_BUILD = "{cp3${{ env.PYTHON_MINOR }}-win_amd64,}"
           $Env:CIBW_BUILD_VERBOSITY = "1"
-          if (Test-Path -Path wheelhouse) { rm wheelhouse/* }
+
+          if ($Env:IS_PYTHON_ABI3 -eq "true")
+          {
+            $Env:CIBW_BUILD = "cp312-win_amd64"
+            $Env:TRITON_STABLE_ABI = "ON"
+          }
+          else
+          {
+            $Env:CIBW_BUILD = "{cp3$Env:PYTHON_MINOR-win_amd64,}"
+          }
+
+          if (Test-Path -Path wheelhouse)
+          {
+            rm wheelhouse/*
+          }
+
           if (Test-Path -Path setup.py)
           {
             cibuildwheel .
@@ -84,16 +124,47 @@ jobs:
             cibuildwheel python
           }
 
+      - uses: actions/upload-artifact@v7
+        with:
+          path: triton-windows/wheelhouse/*
+
       - name: Unit test
         shell: powershell
         run: |
           & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
-          .venv-cp3${{ env.PYTHON_MINOR }}\Scripts\activate.ps1
+          & ".venv-cp3$Env:PYTHON_MINOR\Scripts\activate.ps1"
           python -m pip install --upgrade cloudpickle numpy pytest-xdist pytest-timeout scipy expecttest
-          python -m pip install --index-url https://rocm.nightlies.amd.com/v2/gfx110X-all/ "rocm[libraries,devel]==7.13.0a20260419" "torch==2.10.0+rocm7.13.0a20260419"
+
+          $indexUrl = "https://nightly.repo.amd.com/rocm/whl-next/"
+          if ($Env:ROCM_VERSION)
+          {
+            $torchVersion = "$Env:TORCH_VERSION+rocm$Env:ROCM_VERSION"
+            python -m pip install --index-url $indexUrl "rocm[libraries,devel,device-gfx1101]==$Env:ROCM_VERSION" "torch[device-gfx1101]==$torchVersion"
+          }
+          else
+          {
+            # Install torch first so the resolver picks the latest nightly torch together
+            # with the exact ROCm version it was built against (torch pins rocm[libraries]).
+            # Requesting unpinned rocm[...] in the same command makes the resolver pick the
+            # newest ROCm, then backtrack torch through many nightly builds to find a match.
+            python -m pip install --pre --index-url $indexUrl "torch[device-gfx1101]"
+            $rocmVersion = python -c "from importlib.metadata import version; print(version('rocm'))"
+            python -m pip install --index-url $indexUrl "rocm[libraries,devel,device-gfx1101]==$rocmVersion"
+          }
+
+          # Expand rocm[devel] once, in a single process, before pytest starts.
+          # The first-use expansion takes a non-blocking lock, so with pytest-xdist
+          # the workers race and all but one end up with `_rocm_root is None`.
+          python -m rocm_sdk init
+
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
           cd ../python/test/unit
-          # Load shared fixtures without letting the folder `python\` shadow the installed wheel.
-          $Env:PYTHONPATH = (Resolve-Path ..\..\..).Path
-          python -m pytest --confcutdir=.. -p python.conftest ${{ env.PYTEST_ARGS }}
+          $pytestArgs = @("--confcutdir=..")
+          if (Test-Path ..\..\conftest.py)
+          {
+            # Load shared fixtures without letting the folder `python\` shadow the installed wheel.
+            $Env:PYTHONPATH = (Resolve-Path ..\..\..).Path
+            $pytestArgs += @("-p", "python.conftest")
+          }
+          python -m pytest @pytestArgs
