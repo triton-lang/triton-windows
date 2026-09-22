@@ -37,7 +37,7 @@ on:
         description: Is Python ABI3
         required: false
         type: boolean
-        default: false
+        default: true
       cibw_build_override:
         description: CIBW_BUILD override
         required: false
