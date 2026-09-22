@@ -12,27 +12,22 @@ on:
         description: Python minor version
         required: true
         type: string
-        default: '13'
-      rocm_major:
-        description: ROCm major version
-        required: true
+        default: '12'
+      is_python_abi3:
+        description: Is Python ABI3
+        required: false
+        type: boolean
+        default: true
+      rocm_version:
+        description: 'ROCm version (e.g. 10.1.0a20260823). Leave empty to use the latest ROCm and PyTorch wheels'
+        required: false
         type: string
-        default: '7'
-      rocm_minor:
-        description: ROCm minor version
-        required: true
+        default: ''
+      torch_version:
+        description: 'PyTorch version (e.g. 2.14.0). Required when rocm_version is set'
+        required: false
         type: string
-        default: '13'
-      rocm_date:
-        description: ROCm nightly date
-        required: true
-        type: string
-        default: '20260419'
-      torch_minor:
-        description: PyTorch minor version
-        required: true
-        type: string
-        default: '10'
+        default: ''
       pytest_args:
         description: pytest args
         required: true
@@ -50,12 +45,19 @@ jobs:
     env:
       PIP_CACHE_DIR: E:\pip-cache
       PYTHON_MINOR: ${{ inputs.python_minor }}
-      ROCM_MAJOR: ${{ inputs.rocm_major }}
-      ROCM_MINOR: ${{ inputs.rocm_minor }}
-      ROCM_DATE: ${{ inputs.rocm_date }}
-      TORCH_MINOR: ${{ inputs.torch_minor }}
+      IS_PYTHON_ABI3: ${{ inputs.is_python_abi3 }}
+      ROCM_VERSION: ${{ inputs.rocm_version }}
+      TORCH_VERSION: ${{ inputs.torch_version }}
       PYTEST_ADDOPTS: ${{ inputs.pytest_args }}
     steps:
+      - name: Validate inputs
+        shell: powershell
+        run: |
+          if ($Env:ROCM_VERSION -and -not $Env:TORCH_VERSION)
+          {
+            throw "torch_version is required when rocm_version is set"
+          }
+
       - uses: astral-sh/setup-uv@v9.0.0
 
       - name: Clean caches
@@ -91,9 +93,23 @@ jobs:
           git rev-parse HEAD
 
           $Env:TRITON_BUILD_PROTON = "0"
-          $Env:CIBW_BUILD = "{cp3$Env:PYTHON_MINOR-win_amd64,}"
           $Env:CIBW_BUILD_VERBOSITY = "1"
-          if (Test-Path -Path wheelhouse) { rm wheelhouse/* }
+
+          if ($Env:IS_PYTHON_ABI3 -eq "true")
+          {
+            $Env:CIBW_BUILD = "cp312-win_amd64"
+            $Env:TRITON_STABLE_ABI = "ON"
+          }
+          else
+          {
+            $Env:CIBW_BUILD = "{cp3$Env:PYTHON_MINOR-win_amd64,}"
+          }
+
+          if (Test-Path -Path wheelhouse)
+          {
+            rm wheelhouse/*
+          }
+
           if (Test-Path -Path setup.py)
           {
             cibuildwheel .
@@ -114,21 +130,27 @@ jobs:
           & ".venv-cp3$Env:PYTHON_MINOR\Scripts\activate.ps1"
           python -m pip install --upgrade cloudpickle numpy pytest-xdist pytest-timeout scipy expecttest
 
-          $rocmVersion = "$Env:ROCM_MAJOR.$Env:ROCM_MINOR.0a$Env:ROCM_DATE"
-          $torchVersion = "2.$Env:TORCH_MINOR.0+rocm$rocmVersion"
-          if ([int]::Parse($Env:ROCM_DATE) -ge 20260520)
+          $indexUrl = "https://nightly.repo.amd.com/rocm/whl-next/"
+          if ($Env:ROCM_VERSION)
           {
-            $indexUrl = "https://rocm.nightlies.amd.com/whl-multi-arch/"
-            $rocmRequirement = "rocm[libraries,devel,device-gfx1101]==$rocmVersion"
-            $torchRequirement = "torch[device-gfx1101]==$torchVersion"
+            $torchVersion = "$Env:TORCH_VERSION+rocm$Env:ROCM_VERSION"
+            python -m pip install --index-url $indexUrl "rocm[libraries,devel,device-gfx1101]==$Env:ROCM_VERSION" "torch[device-gfx1101]==$torchVersion"
           }
           else
           {
-            $indexUrl = "https://rocm.nightlies.amd.com/v2/gfx110X-all/"
-            $rocmRequirement = "rocm[libraries,devel]==$rocmVersion"
-            $torchRequirement = "torch==$torchVersion"
+            # Install torch first so the resolver picks the latest nightly torch together
+            # with the exact ROCm version it was built against (torch pins rocm[libraries]).
+            # Requesting unpinned rocm[...] in the same command makes the resolver pick the
+            # newest ROCm, then backtrack torch through many nightly builds to find a match.
+            python -m pip install --pre --index-url $indexUrl "torch[device-gfx1101]"
+            $rocmVersion = python -c "from importlib.metadata import version; print(version('rocm'))"
+            python -m pip install --index-url $indexUrl "rocm[libraries,devel,device-gfx1101]==$rocmVersion"
           }
-          python -m pip install --index-url $indexUrl $rocmRequirement $torchRequirement
+
+          # Expand rocm[devel] once, in a single process, before pytest starts.
+          # The first-use expansion takes a non-blocking lock, so with pytest-xdist
+          # the workers race and all but one end up with `_rocm_root is None`.
+          python -m rocm_sdk init
 
           cd triton-windows/wheelhouse
           python -m pip install $(Get-ChildItem | Select-Object -First 1)
