@@ -129,8 +129,6 @@ def check_type_supported(dtype, device):
         cc = torch.cuda.get_device_capability()
         if cc[0] < 8 and (dtype is tl.bfloat16 or dtype == "bfloat16" or dtype is torch.bfloat16):
             pytest.skip("bfloat16 is only supported on NVGPU with cc >= 80")
-        if cc[0] < 9 and dtype in {tl.float8e4nv, "float8e4nv", "float8_e4m3fn"}:
-            pytest.skip("float8e4nv is only supported on NVGPU with cc >= 90")
     if is_interpreter():
         if dtype in [tl.bfloat16, "bfloat16", torch.bfloat16]:
             pytest.skip("bfloat16 is not supported in the interpreter")
@@ -4371,8 +4369,6 @@ def test_dot(M, N, K, num_warps, col_a, col_b, epilogue, input_precision, in_dty
                 if out_dtype == 'float16':
                     # TODO: support out_dtype=float16 for tl.dot on V100
                     pytest.skip("Only test out_dtype=float16 on devices with sm >=80")
-            if capability[0] < 9 and in_dtype == 'float8e4nv':
-                pytest.skip("float8e4nv not supported on sm <= 80")
             if in_dtype == 'float64' and input_precision != 'ieee':
                 pytest.skip("Only IEEE precision is supported for float64 dot")
 
