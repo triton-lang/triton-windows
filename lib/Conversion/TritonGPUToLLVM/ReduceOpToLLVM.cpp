@@ -453,8 +453,9 @@ private:
       // same order. Broadcast its result instead of ordering both operands at
       // every step of the tree.
       auto b = TritonLLVMOpBuilder(op.getLoc(), rewriter);
-      Value leader = b.and_(getLaneId(rewriter, op.getLoc()),
-                            b.i32_val(~reduceLaneIdMask));
+      Value leader =
+          b.and_(getLaneId(rewriter, op.getLoc()),
+                 b.i32_val(static_cast<uint32_t>(~reduceLaneIdMask)));
       for (Value &value : acc)
         value = targetInfo.shuffleIdx(rewriter, op.getLoc(), value, leader);
     }
