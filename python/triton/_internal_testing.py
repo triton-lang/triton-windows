@@ -14,7 +14,12 @@ from typing import Optional, Set, Union
 from dataclasses import dataclass
 from contextlib import contextmanager
 import pytest
-import resource
+
+try:
+    # The resource module is Unix-only
+    import resource
+except ImportError:
+    resource = None
 
 from triton._compile_warmup_state import is_compile_warmup
 
@@ -313,7 +318,8 @@ def _call_in_process(client_fn, args, kwargs, env, stderr_file, compilation_list
     # By defaul AMD runtime calls abort on device assert.
     # Following forces hip rutime to skip abort call.
     if is_hip():
-        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+        if resource is not None:
+            resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
         os.environ["HIP_SKIP_ABORT_ON_GPU_ERROR"] = "1"
 
     # Capture driver/runtime writes to stderr that bypass Python's file objects.
