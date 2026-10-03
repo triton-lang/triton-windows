@@ -1,4 +1,6 @@
 <!---
+Before opening a PR to the triton-windows repo, please read https://github.com/triton-lang/triton-windows/blob/readme/BUILD.md#branches-in-this-repo
+
 The core Triton is a small number of people, and we receive many PRs (thank
 you!).  To help us review your code more quickly, **if you are a new
 contributor (less than 3 PRs merged) we ask that you complete the following
