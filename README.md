@@ -509,6 +509,19 @@ then you need: https://github.com/pytorch/pytorch/issues/138211
 
 This has been fixed since PyTorch 2.6 .
 
+### Error with `os.replace` in PyTorch 2.6
+
+If `torch.compile` fails with errors like
+```
+  File "C:\...\Lib\site-packages\torch\_inductor\triton_bundler.py", line 268, in read_and_emit
+    os.replace(tmp_dir, directory)
+torch._dynamo.exc.BackendCompilerFailed: backend='inductor' raised:
+PermissionError: [WinError 5] Access is denied: '...\\triton\\0\\tmp.<random id>' -> '...\\triton\\0\\<kernel hash>'
+```
+and it happens again every time you run your program, then it's a bug in PyTorch 2.6: it renames a temp folder onto an empty folder that it created itself, which is not allowed on Windows.
+
+This has been fixed since PyTorch 2.7, see https://github.com/pytorch/pytorch/pull/146481 . If you need to stay on PyTorch 2.6, you can set the environment variable `TORCHINDUCTOR_BUNDLE_TRITON_INTO_FX_GRAPH_CACHE=0`.
+
 ### Error with CPU tensor
 
 If see errors like
