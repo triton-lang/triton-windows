@@ -32,7 +32,7 @@ on:
         description: pytest args
         required: true
         type: string
-        default: '-n 8 --tb=short'
+        default: '-n 8 --tb=short --timeout=120 --timeout-method=thread'
 
 jobs:
   pre-commit:
