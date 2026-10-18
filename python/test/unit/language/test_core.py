@@ -7827,6 +7827,12 @@ def test_gather(src_shape, indices_shape, axis, device):
         # This could be solved by reducing vectorization in general swizzling algorithm.
         # We will do this if any relevant workload suffers from large LDS consumption of the algorithm.
         pytest.skip('Not enough LDS.')
+    if src_shape == [128, 64] and indices_shape == [256, 64] and not is_interpreter():
+        shared_mem_accum = 131072
+        shared_mem_avail = triton.runtime.driver.active.utils.get_device_properties(
+            triton.runtime.driver.active.get_current_device())["max_shared_mem"]
+        if shared_mem_accum > shared_mem_avail:
+            pytest.skip("Skipped due to insufficient shared memory on this GPU.")
 
     def triton_gather(src: torch.Tensor, axis: int, indices: torch.Tensor):
         output = torch.empty(indices.shape, dtype=src.dtype, device=src.device)
