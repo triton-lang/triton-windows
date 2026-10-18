@@ -39,7 +39,7 @@ on:
         description: pytest args
         required: true
         type: string
-        default: '-n 8 --tb=short'
+        default: '-n 8 --tb=short --timeout=120 --timeout-method=thread'
 
 jobs:
   pre-commit:
@@ -53,7 +53,7 @@ jobs:
       IS_PYTHON_ABI3: ${{ github.event_name != 'workflow_dispatch' || inputs.is_python_abi3 }}
       ROCM_VERSION: ${{ inputs.rocm_version }}
       TORCH_VERSION: ${{ inputs.torch_version }}
-      PYTEST_ADDOPTS: ${{ inputs.pytest_args || '-n 8 --tb=short' }}
+      PYTEST_ADDOPTS: ${{ inputs.pytest_args || '-n 8 --tb=short --timeout=120 --timeout-method=thread' }}
     steps:
       - name: Validate inputs
         shell: powershell
