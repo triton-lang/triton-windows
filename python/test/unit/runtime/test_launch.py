@@ -78,7 +78,10 @@ def test_max_occupancy_launch(max_occupancy, num_warps, num_ctas, device, monkey
         if num_ctas == 1:
             # Check CUDA's occupancy calculation, independently of the reservation formula.
             # Match the runtime loader's driver selection, including CUDA compatibility libraries.
-            cuda = ctypes.CDLL("libcuda.so.1")
+            if os.name == "nt":
+                cuda = ctypes.WinDLL("nvcuda.dll")
+            else:
+                cuda = ctypes.CDLL("libcuda.so.1")
             occupancy = cuda.cuOccupancyMaxActiveBlocksPerMultiprocessor
             occupancy.argtypes = [ctypes.POINTER(ctypes.c_int), ctypes.c_void_p, ctypes.c_int, ctypes.c_size_t]
             occupancy.restype = ctypes.c_int
