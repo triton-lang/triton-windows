@@ -908,6 +908,8 @@ def test_compile_link_scalar_float(dtype, alpha):
         gen_kernel_library(tmp_dir, "libkernel.so")
         gen_scalar_float_test_bin(tmp_dir, block, alpha, exe=exe)
 
-        env = os.environ.copy()
-        env["LD_LIBRARY_PATH"] = tmp_dir
-        subprocess.run([f"./{exe}"], env=env, check=True, cwd=tmp_dir)
+        env = _make_run_env(tmp_dir)
+        if os.name == "nt":
+            exe = f"{exe}.exe"
+        exe = os.path.join(tmp_dir, exe)
+        _run_aot_executable([exe], env=env, check=True, cwd=tmp_dir)
