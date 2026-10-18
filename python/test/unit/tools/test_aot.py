@@ -520,6 +520,8 @@ def test_linker_rejects_invalid_algo_id():
     with tempfile.TemporaryDirectory() as tmp_dir:
         c_path = os.path.join(tmp_dir, "test_linker_algo_id_bounds.c")
         exe_path = os.path.join(tmp_dir, "test_linker_algo_id_bounds")
+        if os.name == "nt":
+            exe_path += ".exe"
         with open(c_path, "w") as fp:
             fp.write(f"""
 #include <stdio.h>
@@ -559,7 +561,12 @@ int main(void) {{
 }}
 """)
 
-        subprocess.run(["gcc", "-std=c99", "-DNDEBUG", c_path, "-o", exe_path], check=True)
+        cc = _find_compiler("c")
+        if is_msvc(cc) or is_clang_cl(cc):
+            command = [cc, c_path, "/nologo", "/utf-8", "/std:c11", "/DNDEBUG", "/link", f"/OUT:{exe_path}"]
+        else:
+            command = [cc, c_path, "-std=c11", "-DNDEBUG", "-o", exe_path]
+        subprocess.run(command, check=True, cwd=tmp_dir)
         subprocess.run([exe_path], check=True)
 
 
