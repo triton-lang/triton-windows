@@ -94,6 +94,12 @@ def test_cast_matmul(M, K, N, BLOCK_K, BLOCK_M, BLOCK_N, w_dtype, x_dtype, out_d
         pytest.skip("FP8 to FP64 conversion is not supported")
     x_dtype: torch.dtype = getattr(torch, x_dtype)
     w_dtype: torch.dtype = getattr(torch, w_dtype)
+    if is_cuda():
+        shared_mem_accum = 2 * (BLOCK_K * BLOCK_M + BLOCK_K * BLOCK_N) * max(w_dtype.itemsize, x_dtype.itemsize)
+        shared_mem_avail = triton.runtime.driver.active.utils.get_device_properties(
+            triton.runtime.driver.active.get_current_device())["max_shared_mem"]
+        if shared_mem_accum > shared_mem_avail:
+            pytest.skip("Skipped due to insufficient shared memory on this GPU.")
 
     def init_tensor(dtype, shape):
         if dtype == torch.int8:
