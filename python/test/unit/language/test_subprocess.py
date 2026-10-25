@@ -9,7 +9,7 @@ import numpy as np
 import print_helper
 
 import triton
-from triton._internal_testing import is_interpreter
+from triton._internal_testing import is_hip_rdna2, is_interpreter
 
 import pytest
 
@@ -60,6 +60,9 @@ def _hex_float_values(output: str) -> Counter:
 def test_print(func_type: str, data_type: str, device: str, capfd):
     if os.name == "nt" and func_type == "device_print_large":
         pytest.skip("Windows has limited pipe buffer size")
+    if os.name == "nt" and is_hip_rdna2() and func_type in ("print_multiple_args", "device_print_multiple_args"):
+        # Each hostcall takes seconds, so the kernel times out after the first printf
+        pytest.skip("https://github.com/ROCm/TheRock/issues/9475")
 
     if os.name == "nt":
         # Device printf retains the process's original stdout handle, which capfd does not replace on Windows.

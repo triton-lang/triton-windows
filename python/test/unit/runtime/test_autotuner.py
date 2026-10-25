@@ -620,7 +620,7 @@ $L__func_end0:
 
 
 def test_exceed_tmem(device):
-    if not torch.cuda.is_available() or not torch.cuda.get_device_capability()[0] == 10:
+    if not is_cuda() or not torch.cuda.get_device_capability()[0] == 10:
         pytest.skip("Test requires tensor memory.")
     N = 512
     dst = torch.empty((N, ), device=device, dtype=torch.float32)
