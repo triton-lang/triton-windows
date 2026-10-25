@@ -5,7 +5,7 @@ import triton
 import triton.language as tl
 from triton.tools.mxfp import MXFP4Tensor, MXScaleTensor, fp8e8m0_to_float32
 import re
-from triton._internal_testing import is_compile_warmup, is_cuda, is_hip, is_hip_cdna3, is_hip_cdna4, is_hip_cdna, is_hip_gfx1250, is_rubin, is_blackwell
+from triton._internal_testing import is_compile_warmup, is_cuda, is_hip, is_hip_cdna3, is_hip_cdna4, is_hip_cdna, is_hip_gfx1250, is_hip_rdna2, is_rubin, is_blackwell
 
 pytestmark = pytest.mark.enable_warmup
 
@@ -158,6 +158,10 @@ def test_simple_matmul(dtype_src_str, dtype_dst_str, BLOCK_M, BLOCK_N, BLOCK_K, 
         dtype_src = getattr(torch, dtype_src_str)
         a = torch.randn(M, K, dtype=dtype_src, device=device)
         b = torch.randn(K, N, dtype=dtype_src, device=device)
+        if is_hip_rdna2() and dtype_dst_str == "float16":
+            # RDNA2 has no matrix cores, and float16 accumulator in FMA dot loses precision too fast
+            a *= 0.1
+            b *= 0.1
         A = a
         B = b
     dtype_dst = getattr(torch, dtype_dst_str)
@@ -185,7 +189,7 @@ def test_simple_matmul(dtype_src_str, dtype_dst_str, BLOCK_M, BLOCK_N, BLOCK_K, 
     # operations. (Pipeliner will add additional mma operation by peeling the prologue.)
     # This applies only if TCv5 MMA is used (M % 64 == 0 and N % 8 == 0) and
     # when MMA arguments loads are pipelined (N > 16)
-    if (device == "cuda" and torch.cuda.get_device_capability()[0] == 10 and NUM_STAGES > 1 and BLOCK_M % 64 == 0
+    if (is_cuda() and torch.cuda.get_device_capability()[0] == 10 and NUM_STAGES > 1 and BLOCK_M % 64 == 0
             and BLOCK_N % 8 == 0 and BLOCK_N > 16
             and not (precision == "ieee" and (dtype_src_str == "float32" or dtype_src_str == "float64"))):
         ttgir = k.asm["ttgir"]
@@ -328,7 +332,7 @@ def test_simple_persistent_matmul(BLOCK_M, BLOCK_N, BLOCK_K, NUM_WARPS, DISALLOW
     # Make sure the mma is pipelined by checking if in the TTGIR we have peeled mmav5 ops.
     # This applies only if TCv5 MMA is used (M % 64 == 0 and N % 8 == 0) and
     # when MMA arguments loads are pipelined (N > 16)
-    if (device == "cuda" and torch.cuda.get_device_capability()[0] == 10 and BLOCK_M % 64 == 0 and BLOCK_N % 8 == 0
+    if (is_cuda() and torch.cuda.get_device_capability()[0] == 10 and BLOCK_M % 64 == 0 and BLOCK_N % 8 == 0
             and BLOCK_N > 16):
         ttgir = k.asm["ttgir"]
         pattern = "ttng.tc_gen5_mma"
