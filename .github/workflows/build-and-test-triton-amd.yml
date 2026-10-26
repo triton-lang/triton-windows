@@ -128,7 +128,8 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64
           & ".venv-cp3$Env:PYTHON_MINOR\Scripts\activate.ps1"
-          python -m pip install --upgrade cloudpickle numpy pytest-xdist pytest-timeout scipy expecttest
+          # python/test-requirements.txt includes llnl-hatchet , which we do not install on Windows for now.
+          python -m pip install --upgrade cloudpickle matplotlib numpy pandas pytest-xdist pytest-timeout scipy expecttest
 
           $indexUrl = "https://nightly.repo.amd.com/rocm/whl-next/"
           if ($Env:ROCM_VERSION)
