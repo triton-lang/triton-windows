@@ -1,6 +1,7 @@
 autopep8
 cloudpickle
 isort
+matplotlib
 numpy
 pytest
 pytest-instafail
