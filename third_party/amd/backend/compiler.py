@@ -746,6 +746,9 @@ class HIPBackend(BaseBackend):
             kernel_fn.remove_fn_attr("amdgpu-no-workgroup-id-y")
             kernel_fn.remove_fn_attr("amdgpu-no-workgroup-id-z")
 
+        if options.base_arch.startswith(("gfx11", "gfx12")):
+            amd.add_pack_wmma_operands_llvm_pass(kernel_fn)
+
         if knobs.amd.scalarize_packed_fops:
             amd.add_scalarize_packed_fops_llvm_pass(kernel_fn)
 
