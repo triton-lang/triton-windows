@@ -33,13 +33,12 @@ Check your GPU model. Also make sure you have the latest GPU driver.
 | RDNA4 (gfx120x, RX 9xxx) | Yes |
 | RDNA3.5 (gfx115x, Strix Halo) | Yes |
 | RDNA3 (gfx110x, RX 7xxx) | Yes |
-| RDNA2 (gfx103x, RX 6xxx) | Partially |
+| RDNA2 (gfx103x, RX 6xxx) | Yes |
 
 * Blackwell only works with Triton >= 3.3, PyTorch >= 2.7, and CUDA >= 12.8
-* Support for Volta and Turing was dropped since Triton 3.3, see https://github.com/triton-lang/triton/pull/5066
-* If you want to help maintaining Turing in the latest Triton, see https://github.com/triton-lang/triton-windows/issues/28
+* Support for Volta and Turing was dropped since Triton 3.3, see https://github.com/triton-lang/triton/pull/5066 . If you want to help maintaining them in triton-windows, see https://github.com/triton-lang/triton-windows/issues/28
 * If you want to help with Pascal, see https://github.com/woct0rdho/triton-windows/issues/133 for the previous discussions, and open a new issue in this repo. It may be handled in a way similar to RDNA2
-* If you want to help with RDNA2, see https://github.com/triton-lang/triton-windows/issues/41
+* The official Triton does not support RDNA2, see https://github.com/triton-lang/triton/pull/12042 . If you want to help maintaining it in triton-windows, see https://github.com/triton-lang/triton-windows/issues/41
 
 Besides the overall Triton support, also check hardware-supported data types:
 
@@ -113,6 +112,7 @@ Although technically Triton can be used alone, in the following let's assume you
 | 2.12 | 3.7 |
 | 2.13 | 3.7 |
 | 2.14 | 3.8 |
+| 2.15 | 3.9 |
 
 PyTorch 2.3 and older are not supported in this repo.
 
@@ -135,7 +135,7 @@ ptxas version bundled in each Triton minor version:
 | --- | --- |
 | 3.1 .. 3.2 | 12.4 |
 | 3.3 .. 3.7 | 12.8 |
-| 3.8 | 12.9 |
+| 3.8 .. 3.9 | 12.9 |
 
 See [nvidia-toolchain-version.json](https://github.com/triton-lang/triton/blob/main/cmake/nvidia-toolchain-version.json) for the detailed versions of other components.
 
@@ -253,9 +253,9 @@ If you've installed an old version of `triton`, first uninstall it:
 ```pwsh
 pip uninstall triton
 ```
-Now you can install `triton-windows 3.8`, or upgrade the already installed version. To prevent breaking with your installed PyTorch when a new version of Triton is released in future, you can limit the version to be < 3.9:
+Now you can install `triton-windows 3.9`, or upgrade the already installed version. To prevent breaking with your installed PyTorch when a new version of Triton is released in future, you can limit the version to be < 3.10:
 ```pwsh
-pip install -U "triton-windows<3.9"
+pip install -U "triton-windows<3.10"
 ```
 Note again that if you're using the embeded Python, then instead of directly run `pip`, you need:
 ```pwsh
