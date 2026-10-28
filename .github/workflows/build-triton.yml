@@ -74,8 +74,8 @@ jobs:
             runner: windows-2022
             msvc_arch: x64
             cibw_arch: AMD64
-            cibw_build: cp3{10,11,12,13,14}
-            cibw_pre_abi3_build: cp3{10,11}
+            cibw_build: cp3{11,12,13,14}
+            cibw_pre_abi3_build: cp311
             wheel_platform: win_amd64
           - architecture: arm64
             runner: windows-11-arm
