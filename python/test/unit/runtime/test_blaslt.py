@@ -1,6 +1,6 @@
 import pytest
 import torch
-from triton._internal_testing import is_cuda, is_hip, is_hip_cdna3, is_hip_cdna4
+from triton._internal_testing import is_cuda, is_hip, is_hip_cdna3, is_hip_cdna4, is_hip_rdna2
 from triton.tools.mxfp import MXFP4Tensor, MXScaleTensor
 
 
@@ -23,6 +23,8 @@ def test_blaslt(m, n, k, dtype_str, device):
         make_handle = lambda workspace: vendor.cublas.CublasLt(workspace)
     elif is_hip():
         from triton._C.libtriton import amd as vendor
+        if is_hip_rdna2():
+            pytest.skip("hipBLASLt does not support RDNA2")
         if dtype_str == "float8_e4m3fnuz" and not is_hip_cdna3():
             pytest.skip("float8_e4m3fnuz is only supported on HIP CDNA3")
         if dtype_str == "float8_e4m3fn" and not is_hip_cdna4():
