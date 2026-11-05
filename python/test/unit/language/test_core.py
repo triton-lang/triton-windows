@@ -84,6 +84,9 @@ elif is_hip():
         mma_nonk_sizes = [0, 16, 32]
     elif is_hip_rdna3() or is_hip_rdna4m() or is_hip_rdna4() or is_hip_cdna5():
         mma_nonk_sizes = [16]
+    elif is_hip_rdna2():
+        # No matrix cores; dots lower to FMA/v_dot and the size is ignored.
+        mma_nonk_sizes = [0]
 else:
     THREADS_PER_WARP = 32
 
@@ -4874,13 +4877,14 @@ def test_scaled_dot(M, N, K, col_a, col_b, rhs_scale, mxfp_type, normal_type, nu
             pytest.skip("float8e4nv not supported on CUDA < 8.9")
         is_SM120 = cc >= (12, 0)
     if is_hip():
-        if not (is_hip_cdna() or is_hip_rdna3() or is_hip_rdna4m() or is_hip_rdna4() or is_hip_cdna5()):
-            pytest.skip("scaled_dot only implemented for HIP CDNA, RDNA3, RDNA4 and above")
+        if not (is_hip_cdna() or is_hip_rdna2() or is_hip_rdna3() or is_hip_rdna4m() or is_hip_rdna4()
+                or is_hip_cdna5()):
+            pytest.skip("scaled_dot only implemented for HIP CDNA, RDNA2, RDNA3, RDNA4 and above")
         if "e4m3" in (mxfp_type, normal_type):
-            if not (is_hip_cdna3() or is_hip_cdna4() or is_hip_rdna3() or is_hip_rdna4m() or is_hip_rdna4()
-                    or is_hip_cdna5()):
+            if not (is_hip_cdna3() or is_hip_cdna4() or is_hip_rdna2() or is_hip_rdna3() or is_hip_rdna4m()
+                    or is_hip_rdna4() or is_hip_cdna5()):
                 pytest.skip(
-                    f"scaled_dot({mxfp_type}, {normal_type}) only implemented for CDNA3, CDNA4, RDNA3, RDNA4, and above"
+                    f"scaled_dot({mxfp_type}, {normal_type}) only implemented for CDNA3, CDNA4, RDNA2, RDNA3, RDNA4, and above"
                 )
         if mma == 16 and K == 64 and not (is_hip_rdna4() or is_hip_rdna4m() or is_hip_rdna3() or is_hip_cdna5()):
             pytest.skip(f"K == {K} too small for mfma {mma} in scaled_dot")
