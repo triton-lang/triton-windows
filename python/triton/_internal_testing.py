@@ -179,7 +179,7 @@ def is_hip_cdna():
 
 
 def is_hip_rdna():
-    return is_hip_rdna3() or is_hip_rdna4m() or is_hip_rdna4()
+    return is_hip_rdna2() or is_hip_rdna3() or is_hip_rdna4m() or is_hip_rdna4()
 
 
 def get_hip_lds_size():
