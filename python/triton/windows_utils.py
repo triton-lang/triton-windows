@@ -47,11 +47,10 @@ def max_version(
     check: Callable[[str], bool] = lambda x: True,
 ) -> Optional[str]:
     versions = [x for x in versions if check(x)]
-    versions = [parse_version(x, prefix) for x in versions]
-    versions = [x for x in versions if x is not None]
-    if not versions:
+    parsed = [v for x in versions if (v := parse_version(x, prefix)) is not None]
+    if not parsed:
         return None
-    version = unparse_version(max(versions), prefix)
+    version = unparse_version(max(parsed), prefix)
     return version
 
 
@@ -97,18 +96,18 @@ def check_msvc(msvc_base_path: Path, version: str) -> bool:
     ])
 
 
-def find_msvc_env() -> tuple[Optional[Path], Optional[str]]:
-    msvc_base_path = os.getenv("VCINSTALLDIR")
-    if msvc_base_path is None:
-        return None, None
-    msvc_base_path = Path(msvc_base_path) / "Tools" / "MSVC"
+def find_msvc_env() -> Optional[tuple[Path, str]]:
+    vc_install_dir = os.getenv("VCINSTALLDIR")
+    if vc_install_dir is None:
+        return None
+    msvc_base_path = Path(vc_install_dir) / "Tools" / "MSVC"
 
     version = os.getenv("VCToolsVersion")
     if version is None or not check_msvc(msvc_base_path, version):
         warnings.warn(f"Environment variables VCINSTALLDIR = {os.getenv('VCINSTALLDIR')}, "
                       f"VCToolsVersion = {os.getenv('VCToolsVersion')} are set, "
                       "but this MSVC installation is incomplete.")
-        return None, None
+        return None
 
     return msvc_base_path, version
 
@@ -131,36 +130,36 @@ def vswhere_cmd(vswhere_path: Path, win11_sdk: bool) -> list[str]:
     ]
 
 
-def find_msvc_vswhere() -> tuple[Optional[Path], Optional[str]]:
+def find_msvc_vswhere() -> Optional[tuple[Path, str]]:
     vswhere_path = find_in_program_files(r"Microsoft Visual Studio\Installer\vswhere.exe")
     if vswhere_path is None:
-        return None, None
+        return None
 
     command = vswhere_cmd(vswhere_path, win11_sdk=True)
     try:
         output = subprocess.check_output(command, text=True).strip()
     except subprocess.CalledProcessError:
-        return None, None
+        return None
 
     if not output:
         command = vswhere_cmd(vswhere_path, win11_sdk=False)
         try:
             output = subprocess.check_output(command, text=True).strip()
         except subprocess.CalledProcessError:
-            return None, None
+            return None
 
     msvc_base_path = Path(output) / "VC" / "Tools" / "MSVC"
     if not msvc_base_path.exists():
-        return None, None
+        return None
 
     version = max_version(os.listdir(msvc_base_path), check=partial(check_msvc, msvc_base_path))
     if version is None:
-        return None, None
+        return None
 
     return msvc_base_path, version
 
 
-def find_msvc_envpath() -> tuple[Optional[Path], Optional[str]]:
+def find_msvc_envpath() -> Optional[tuple[Path, str]]:
     paths = os.getenv("PATH", "").split(os.pathsep)
     for path in paths:
         path = path.replace("/", "\\")
@@ -178,25 +177,25 @@ def find_msvc_envpath() -> tuple[Optional[Path], Optional[str]]:
 
         return msvc_base_path, version
 
-    return None, None
+    return None
 
 
-def find_msvc_hardcoded() -> tuple[Optional[Path], Optional[str]]:
+def find_msvc_hardcoded() -> Optional[tuple[Path, str]]:
     vs_path = find_in_program_files("Microsoft Visual Studio")
     if vs_path is None:
-        return None, None
+        return None
 
     paths = glob(str(vs_path / "*" / "*" / "VC" / "Tools" / "MSVC"))
     # First try the highest version
     paths = sorted(paths)[::-1]
-    for msvc_base_path in paths:
-        msvc_base_path = Path(msvc_base_path)
+    for path in paths:
+        msvc_base_path = Path(path)
         version = max_version(os.listdir(msvc_base_path), check=partial(check_msvc, msvc_base_path))
         if version is None:
             continue
         return msvc_base_path, version
 
-    return None, None
+    return None
 
 
 def find_msvc(env_only: bool) -> tuple[Optional[str], list[str], list[str]]:
@@ -210,15 +209,17 @@ def find_msvc(env_only: bool) -> tuple[Optional[str], list[str], list[str]]:
             find_msvc_hardcoded,
         ]
     for f in fs:
-        msvc_base_path, version = f()
-        if msvc_base_path:
-            target_arch = _target_arch()
-            host_dir = _msvc_host_dir()
-            return (
-                str(msvc_base_path / version / "bin" / host_dir / target_arch / "cl.exe"),
-                [str(msvc_base_path / version / "include")],
-                [str(msvc_base_path / version / "lib" / target_arch)],
-            )
+        found = f()
+        if found is None:
+            continue
+        msvc_base_path, version = found
+        target_arch = _target_arch()
+        host_dir = _msvc_host_dir()
+        return (
+            str(msvc_base_path / version / "bin" / host_dir / target_arch / "cl.exe"),
+            [str(msvc_base_path / version / "include")],
+            [str(msvc_base_path / version / "lib" / target_arch)],
+        )
 
     if not env_only:
         warnings.warn("Failed to find MSVC."
@@ -235,11 +236,11 @@ def check_winsdk(winsdk_base_path: Path, version: str) -> bool:
     ])
 
 
-def find_winsdk_env() -> tuple[Optional[Path], Optional[str]]:
-    winsdk_base_path = os.getenv("WindowsSdkDir")
-    if winsdk_base_path is None:
-        return None, None
-    winsdk_base_path = Path(winsdk_base_path)
+def find_winsdk_env() -> Optional[tuple[Path, str]]:
+    winsdk_dir = os.getenv("WindowsSdkDir")
+    if winsdk_dir is None:
+        return None
+    winsdk_base_path = Path(winsdk_dir)
 
     version = os.getenv("WindowsSDKVersion")
     if version is None:
@@ -247,53 +248,53 @@ def find_winsdk_env() -> tuple[Optional[Path], Optional[str]]:
     if version is None:
         warnings.warn(f"Environment variable WindowsSdkDir = {winsdk_base_path}, "
                       "but WindowsSDKVersion (or WindowsSDKVer) is not set.")
-        return None, None
+        return None
     version = version.rstrip("\\")
     if not check_winsdk(winsdk_base_path, version):
         warnings.warn(f"Environment variables WindowsSdkDir = {winsdk_base_path}, "
                       f"WindowsSDKVersion (or WindowsSDKVer) = {version} are set, "
                       "but this Windows SDK installation is incomplete.")
-        return None, None
+        return None
 
     return winsdk_base_path, version
 
 
-def find_winsdk_registry() -> tuple[Optional[Path], Optional[str]]:
+def find_winsdk_registry() -> Optional[tuple[Path, str]]:
     try:
         reg = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
         key = winreg.OpenKeyEx(reg, r"SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v10.0")
         folder = winreg.QueryValueEx(key, "InstallationFolder")[0]
         winreg.CloseKey(key)
     except OSError:
-        return None, None
+        return None
 
     winsdk_base_path = Path(folder)
     if not (winsdk_base_path / "Include").exists():
-        return None, None
+        return None
 
     version = max_version(
         os.listdir(winsdk_base_path / "Include"),
         check=partial(check_winsdk, winsdk_base_path),
     )
     if version is None:
-        return None, None
+        return None
 
     return winsdk_base_path, version
 
 
-def find_winsdk_hardcoded() -> tuple[Optional[Path], Optional[str]]:
+def find_winsdk_hardcoded() -> Optional[tuple[Path, str]]:
     winsdk_base_path = find_in_program_files(r"Windows Kits\10")
     if winsdk_base_path is None:
-        return None, None
+        return None
     if not (winsdk_base_path / "Include").exists():
-        return None, None
+        return None
 
     version = max_version(
         os.listdir(winsdk_base_path / "Include"),
         check=partial(check_winsdk, winsdk_base_path),
     )
     if version is None:
-        return None, None
+        return None
 
     return winsdk_base_path, version
 
@@ -308,20 +309,22 @@ def find_winsdk(env_only: bool) -> tuple[list[str], list[str]]:
             find_winsdk_hardcoded,
         ]
     for f in fs:
-        winsdk_base_path, version = f()
-        if winsdk_base_path:
-            target_arch = _target_arch()
-            return (
-                [
-                    str(winsdk_base_path / "Include" / version / "shared"),
-                    str(winsdk_base_path / "Include" / version / "ucrt"),
-                    str(winsdk_base_path / "Include" / version / "um"),
-                ],
-                [
-                    str(winsdk_base_path / "Lib" / version / "ucrt" / target_arch),
-                    str(winsdk_base_path / "Lib" / version / "um" / target_arch),
-                ],
-            )
+        found = f()
+        if found is None:
+            continue
+        winsdk_base_path, version = found
+        target_arch = _target_arch()
+        return (
+            [
+                str(winsdk_base_path / "Include" / version / "shared"),
+                str(winsdk_base_path / "Include" / version / "ucrt"),
+                str(winsdk_base_path / "Include" / version / "um"),
+            ],
+            [
+                str(winsdk_base_path / "Lib" / version / "ucrt" / target_arch),
+                str(winsdk_base_path / "Lib" / version / "um" / target_arch),
+            ],
+        )
 
     if not env_only:
         warnings.warn("Failed to find Windows SDK."
@@ -404,13 +407,12 @@ def check_and_find_cuda(base_path: Path) -> tuple[Optional[str], list[str], list
 
 
 def find_cuda_env() -> tuple[Optional[str], list[str], list[str]]:
-    for cuda_base_path in ["CUDA_PATH", "CUDA_HOME"]:
-        cuda_base_path = os.getenv(cuda_base_path)
+    for env_var in ["CUDA_PATH", "CUDA_HOME"]:
+        cuda_base_path = os.getenv(env_var)
         if cuda_base_path is None:
             continue
 
-        cuda_base_path = Path(cuda_base_path)
-        cuda_bin_path, cuda_inc_dirs, cuda_lib_dirs = check_and_find_cuda(cuda_base_path)
+        cuda_bin_path, cuda_inc_dirs, cuda_lib_dirs = check_and_find_cuda(Path(cuda_base_path))
         if cuda_bin_path:
             return cuda_bin_path, cuda_inc_dirs, cuda_lib_dirs
 
@@ -440,8 +442,8 @@ def find_cuda_hardcoded() -> tuple[Optional[str], list[str], list[str]]:
     paths = glob(str(parent / "v12*"))
     # First try the highest version
     paths = sorted(paths)[::-1]
-    for cuda_base_path in paths:
-        cuda_base_path = Path(cuda_base_path)
+    for path in paths:
+        cuda_base_path = Path(path)
         cuda_bin_path, cuda_inc_dirs, cuda_lib_dirs = check_and_find_cuda(cuda_base_path)
         if cuda_bin_path:
             return cuda_bin_path, cuda_inc_dirs, cuda_lib_dirs

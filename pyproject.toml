@@ -16,6 +16,11 @@ files = [
 exclude = ["/build/"]
 follow_imports = "silent"
 
+# Optional ROCm SDK wheels are imported lazily in windows_utils.py.
+[[tool.mypy.overrides]]
+module = ["rocm_sdk"]
+ignore_missing_imports = true
+
 [tool.yapf]
 based_on_style = "pep8"
 column_limit = 120

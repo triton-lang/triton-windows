@@ -44,6 +44,14 @@ repos:
     hooks:
       - id: mypy
         pass_filenames: false
+      # windows_utils.py imports winreg and calls ctypes.WinDLL at import time,
+      # so it must be checked as a Windows module regardless of the CI host.
+      - id: mypy
+        alias: mypy-windows
+        name: mypy (windows_utils)
+        args: ["--platform", "win32", "python/triton/windows_utils.py"]
+        files: ^python/triton/windows_utils\.py$
+        pass_filenames: false
 
   # Expand YAML anchors in files used by github workflows, because github can't
   # do this itself.  This lets us use anchors, which avoids code duplication.
