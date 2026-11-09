@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
+import sys
 import warnings
 from functools import lru_cache, reduce
+from pathlib import Path
 from typing import Any, Callable, TYPE_CHECKING, Union, List, Dict
 
 if TYPE_CHECKING:
@@ -10,6 +13,15 @@ if TYPE_CHECKING:
     ObjPath = tuple[int, ...]
 
 TRITON_MAX_TENSOR_NUMEL = 1048576
+
+
+def find_package_paths(package: str) -> list[Path]:
+    paths = []
+    for entry in sys.path:
+        candidate = Path(entry or os.getcwd()) / package
+        if candidate.is_dir() and candidate not in paths:
+            paths.append(candidate)
+    return paths
 
 
 def get_iterable_path(iterable: IterableType, path: ObjPath) -> Any:

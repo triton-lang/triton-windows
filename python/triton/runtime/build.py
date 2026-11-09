@@ -16,12 +16,26 @@ from types import ModuleType
 
 from .cache import get_cache_manager
 from .. import knobs
+from .._utils import find_package_paths
 
 if os.name == "nt":
     from triton.windows_utils import find_msvc_winsdk, find_python, get_8dot3_short_path, normalize_path
 else:
     normalize_path = os.path.abspath
     get_8dot3_short_path = os.path.abspath
+
+
+def _find_rocm_clang_cl() -> str | None:
+    for package_path in find_package_paths("_rocm_sdk_core"):
+        clang_cl = package_path / "lib" / "llvm" / "bin" / "clang-cl.exe"
+        if clang_cl.exists():
+            return str(clang_cl)
+    return None
+
+
+def _find_tcc() -> str | None:
+    tcc = Path(__file__).resolve().parent / "tcc" / "tcc.exe"
+    return str(tcc) if tcc.exists() else None
 
 
 @functools.lru_cache()
@@ -31,8 +45,8 @@ def _find_compiler(language: str) -> str:
         if cc is not None:
             return cc
         # clang-cl from TheRock ROCm wheels (handles HIP C headers that mix C/C++ constructs)
-        cc = os.path.join(sysconfig.get_path("platlib"), "_rocm_sdk_core", "lib", "llvm", "bin", "clang-cl.exe")
-        if os.path.exists(cc):
+        cc = _find_rocm_clang_cl()
+        if cc is not None:
             return cc
         if os.name == "nt":
             # Find and check MSVC and Windows SDK from environment variables set by Launch-VsDevShell.ps1 or VsDevCmd.bat
@@ -40,8 +54,8 @@ def _find_compiler(language: str) -> str:
             if cc is not None:
                 return cc
         # Bundled TinyCC
-        cc = os.path.join(sysconfig.get_path("platlib"), "triton", "runtime", "tcc", "tcc.exe")
-        if os.path.exists(cc):
+        cc = _find_tcc()
+        if cc is not None:
             return cc
         cl = shutil.which("cl")
         gcc = shutil.which("gcc")
@@ -56,8 +70,8 @@ def _find_compiler(language: str) -> str:
     cxx = os.environ.get("CXX")
     if cxx is not None:
         return cxx
-    cxx = os.path.join(sysconfig.get_path("platlib"), "_rocm_sdk_core", "lib", "llvm", "bin", "clang-cl.exe")
-    if os.path.exists(cxx):
+    cxx = _find_rocm_clang_cl()
+    if cxx is not None:
         return cxx
     if os.name == "nt":
         cxx, _, _ = find_msvc_winsdk(env_only=True)
