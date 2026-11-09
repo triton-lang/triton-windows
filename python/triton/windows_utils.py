@@ -104,7 +104,7 @@ def find_msvc_env() -> tuple[Optional[Path], Optional[str]]:
     msvc_base_path = Path(msvc_base_path) / "Tools" / "MSVC"
 
     version = os.getenv("VCToolsVersion")
-    if not check_msvc(msvc_base_path, version):
+    if version is None or not check_msvc(msvc_base_path, version):
         warnings.warn(f"Environment variables VCINSTALLDIR = {os.getenv('VCINSTALLDIR')}, "
                       f"VCToolsVersion = {os.getenv('VCToolsVersion')} are set, "
                       "but this MSVC installation is incomplete.")
