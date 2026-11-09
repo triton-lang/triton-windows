@@ -14,6 +14,8 @@ from glob import glob
 from pathlib import Path
 from typing import Callable, Optional
 
+from ._utils import find_package_paths
+
 
 def find_in_program_files(rel_path: str) -> Optional[Path]:
     program_files = os.getenv("ProgramFiles(x86)", r"C:\Program Files (x86)")
@@ -420,13 +422,16 @@ def find_cuda_env() -> tuple[Optional[str], list[str], list[str]]:
 
 
 def find_cuda_bundled() -> tuple[Optional[str], list[str], list[str]]:
-    cuda_base_path = (Path(sysconfig.get_paths()["platlib"]) / "triton" / "backends" / "nvidia")
+    cuda_base_path = Path(__file__).resolve().parent / "backends" / "nvidia"
     return check_and_find_cuda(cuda_base_path)
 
 
 def find_cuda_pip() -> tuple[Optional[str], list[str], list[str]]:
-    nvidia_base_path = Path(sysconfig.get_paths()["platlib"]) / "nvidia"
-    return check_and_find_cuda(nvidia_base_path)
+    for nvidia_base_path in find_package_paths("nvidia"):
+        cuda_bin_path, cuda_inc_dirs, cuda_lib_dirs = check_and_find_cuda(nvidia_base_path)
+        if cuda_bin_path:
+            return cuda_bin_path, cuda_inc_dirs, cuda_lib_dirs
+    return None, [], []
 
 
 def find_cuda_conda() -> tuple[Optional[str], list[str], list[str]]:
