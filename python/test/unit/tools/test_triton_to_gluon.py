@@ -22,7 +22,7 @@ from triton.tools.triton_to_gluon_translator.translator import convert_triton_to
 
 pytestmark = pytest.mark.skipif(
     is_hip_rdna(),
-    reason="triton-to-gluon translator does not support AMD RDNA3/RDNA4",
+    reason="triton-to-gluon translator does not support AMD RDNA",
 )
 
 
