@@ -1677,6 +1677,12 @@ struct TritonAMDGPUAccelerateMatmulPass
       mfmaPatterns.add<BlockedToWMMA>(context, wmmaVersion,
                                       unsupportedWmmaFeatures, /*benefit=*/2);
       break;
+    case ISAFamily::RDNA2:
+      // No matrix cores: decompose scaled dots into plain dots, which
+      // AccelerateBlocked then maps to FMA/v_dot.
+      mfmaPatterns.add<DecomposeAMDScaledBlocked>(context, targetFeatures,
+                                                  /*benefit=*/3);
+      break;
     default:
       break;
     }
