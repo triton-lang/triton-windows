@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import io
 import json
+import os
 import pytest
 import tarfile
 import tempfile
@@ -154,3 +155,68 @@ def test_amd_codegen_download_mirror(artifact, mirror, monkeypatch, tmp_path):
         "https://oaitriton.blob.core.windows.net/public/llvm-builds")
     assert downloads == [f"{base}/{name}.tar.gz"]
     assert result.read_bytes() == contents
+
+
+def test_find_rocm_clang_cl_uses_package_dirs(monkeypatch, tmp_path):
+    from triton.runtime import build
+
+    missing = tmp_path / "missing"
+    package = tmp_path / "site-packages" / "_rocm_sdk_core"
+    clang_cl = package / "lib" / "llvm" / "bin" / "clang-cl.exe"
+    clang_cl.parent.mkdir(parents=True)
+    clang_cl.write_bytes(b"")
+    monkeypatch.setattr(build, "find_package_paths", lambda name: [missing, package])
+
+    assert build._find_rocm_clang_cl() == str(clang_cl)
+
+
+def test_find_tcc_uses_package_dir(monkeypatch, tmp_path):
+    from triton.runtime import build
+
+    tcc = tmp_path / "tcc" / "tcc.exe"
+    tcc.parent.mkdir()
+    tcc.write_bytes(b"")
+    monkeypatch.setattr(build, "__file__", str(tmp_path / "build.py"))
+
+    assert build._find_tcc() == str(tcc)
+
+
+def _make_bundled_cuda_tree(root: Path) -> Path:
+    from triton.windows_utils import _arch_candidates
+
+    arch = _arch_candidates()[0]
+    (root / "cuda_nvcc" / "bin").mkdir(parents=True)
+    (root / "cuda_nvcc" / "bin" / "ptxas.exe").write_bytes(b"")
+    (root / "cuda_runtime" / "include").mkdir(parents=True)
+    (root / "cuda_runtime" / "include" / "cuda.h").write_bytes(b"")
+    (root / "cuda_runtime" / "lib" / arch).mkdir(parents=True)
+    (root / "cuda_runtime" / "lib" / arch / "cuda.lib").write_bytes(b"")
+    return root
+
+
+@pytest.mark.skipif(os.name != "nt", reason="windows_utils is Windows-only")
+def test_find_cuda_bundled_uses_package_dir(monkeypatch, tmp_path):
+    from triton import windows_utils
+
+    nvidia = _make_bundled_cuda_tree(tmp_path / "backends" / "nvidia")
+    monkeypatch.setattr(windows_utils, "__file__", str(tmp_path / "windows_utils.py"))
+
+    bin_path, inc_dirs, lib_dirs = windows_utils.find_cuda_bundled()
+    assert bin_path == str(nvidia / "cuda_nvcc" / "bin")
+    assert inc_dirs == [str(nvidia / "cuda_runtime" / "include")]
+    assert lib_dirs == [str(nvidia / "cuda_runtime" / "lib" / windows_utils._arch_candidates()[0])]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="windows_utils is Windows-only")
+def test_find_cuda_pip_uses_package_dirs(monkeypatch, tmp_path):
+    from triton import windows_utils
+
+    incomplete = tmp_path / "first" / "nvidia"
+    (incomplete / "cuda_nvcc" / "bin").mkdir(parents=True)
+    complete = _make_bundled_cuda_tree(tmp_path / "second" / "nvidia")
+    monkeypatch.setattr(windows_utils, "find_package_paths", lambda name: [incomplete, complete])
+
+    bin_path, inc_dirs, lib_dirs = windows_utils.find_cuda_pip()
+    assert bin_path == str(complete / "cuda_nvcc" / "bin")
+    assert inc_dirs == [str(complete / "cuda_runtime" / "include")]
+    assert lib_dirs == [str(complete / "cuda_runtime" / "lib" / windows_utils._arch_candidates()[0])]
